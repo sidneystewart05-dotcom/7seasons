@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>We're Arguing · 7 Seasons</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --navy: #1C2B3A; --slate: #2D3F50; --gold: #C4963A; --gold-pale: #F9F3E8;
+      --cream: #FAF8F4; --warm-gray: #8C8178; --text: #2A2A2A; --border: #E0D9D0;
+      --red: #C0392B; --green: #2D7A45; --green-pale: #EAF4EE;
+    }
+    body { font-family: "Inter", sans-serif; background: var(--cream); color: var(--text); min-height: 100vh; }
+
+    /* ── State panels ── */
+    .state-panel { display: none; }
+    .state-panel.active { display: flex; }
+
+    /* ── Centered panels (no_partner, no_argument, waiting, synthesis, error) ── */
+    .panel-centered {
+      min-height: 100vh; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 2rem; text-align: center;
+    }
+    .panel-icon { font-size: 2.5rem; margin-bottom: 1.5rem; }
+    .panel-centered h2 {
+      font-family: "Cormorant Garamond", serif; font-size: 2rem;
+      color: var(--navy); margin-bottom: 0.75rem; line-height: 1.2;
+    }
+    .panel-centered p { color: var(--warm-gray); line-height: 1.7; max-width: 420px; margin-bottom: 1.25rem; font-size: 0.95rem; }
+    .panel-hint { font-size: 0.82rem; color: #B8B2AA; margin-bottom: 2rem; }
+
+    .btn-primary {
+      background: var(--navy); color: white; border: none; padding: 0.9rem 2.5rem;
+      border-radius: 8px; font-family: "Inter", sans-serif; font-size: 0.95rem;
+      font-weight: 500; cursor: pointer; transition: background 0.2s; text-decoration: none;
+      display: inline-block; margin-bottom: 0.75rem;
+    }
+    .btn-primary:hover { background: var(--slate); }
+    .btn-ghost {
+      background: none; border: none; color: var(--warm-gray); cursor: pointer;
+      font-family: "Inter", sans-serif; font-size: 0.85rem; text-decoration: none;
+      display: block; margin-top: 0.25rem;
+    }
+    .btn-ghost:hover { color: var(--navy); }
+
+    /* ── Chat panel ── */
+    #state-chat {
+      flex-direction: column;
+      height: 100dvh;
+      position: fixed; inset: 0;
+    }
+
+    .topbar {
+      background: white; border-bottom: 1px solid var(--border);
+      padding: 0.875rem 1.5rem; display: flex; align-items: center; gap: 1rem;
+      flex-shrink: 0;
+    }
+    .topbar-logo { font-family: "Cormorant Garamond", serif; font-size: 1.1rem; font-weight: 600; color: var(--navy); white-space: nowrap; }
+    .topbar-logo span { color: var(--gold); }
+
+    /* SNAP step indicators */
+    .snap-steps { display: flex; gap: 0.35rem; flex: 1; justify-content: center; }
+    .snap-step {
+      width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.72rem; font-weight: 600; color: var(--warm-gray); transition: all 0.3s;
+    }
+    .snap-step.active { border-color: var(--gold); color: var(--gold); background: var(--gold-pale); }
+    .snap-step.done { border-color: var(--green); color: white; background: var(--green); }
+
+    .topbar-name { font-size: 0.8rem; color: var(--warm-gray); white-space: nowrap; }
+
+    .btn-save-close {
+      background: none; border: 1.5px solid var(--border); border-radius: 8px;
+      padding: 0.3rem 0.75rem; font-family: "Inter", sans-serif;
+      font-size: 0.75rem; color: var(--warm-gray); cursor: pointer; white-space: nowrap;
+      transition: all 0.2s;
+    }
+    .btn-save-close:hover { border-color: var(--navy); color: var(--navy); }
+
+    /* Chat area */
+    .chat-area {
+      flex: 1; overflow-y: auto; padding: 1.5rem;
+      display: flex; flex-direction: column; gap: 1rem; scroll-behavior: smooth;
+    }
+
+    .bubble-wrap { display: flex; gap: 0.75rem; max-width: 680px; width: 100%; }
+    .bubble-wrap.ai { align-self: flex-start; }
+    .bubble-wrap.user { align-self: flex-end; flex-direction: row-reverse; }
+
+    .bubble-avatar {
+      width: 32px; height: 32px; border-radius: 50%; background: var(--navy);
+      color: white; display: flex; align-items: center; justify-content: center;
+      font-size: 0.7rem; font-weight: 500; flex-shrink: 0; margin-top: 2px;
+    }
+    .bubble-avatar.user-av { background: var(--gold); }
+
+    .bubble { padding: 0.875rem 1.1rem; border-radius: 16px; font-size: 0.95rem; line-height: 1.65; max-width: calc(100% - 48px); }
+    .bubble.ai { background: white; color: var(--text); border-radius: 4px 16px 16px 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); white-space: pre-wrap; }
+    .bubble.ai strong { font-weight: 600; color: var(--navy); }
+    .bubble.user { background: var(--navy); color: white; border-radius: 16px 4px 16px 16px; }
+
+    .typing-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--warm-gray); animation: pulse 1.2s ease-in-out infinite; }
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes pulse { 0%, 60%, 100% { opacity: 0.3; transform: scale(0.9); } 30% { opacity: 1; transform: scale(1.1); } }
+
+    /* Submit hint */
+    .submit-hint {
+      display: none; background: var(--green-pale); border-top: 1px solid #C8E6D4;
+      padding: 0.85rem 1.5rem; text-align: center; font-size: 0.85rem; color: var(--green);
+      flex-shrink: 0;
+    }
+    .submit-hint.visible { display: block; }
+    .submit-hint button {
+      background: var(--green); color: white; border: none; border-radius: 8px;
+      padding: 0.5rem 1.5rem; font-family: "Inter", sans-serif; font-size: 0.85rem;
+      font-weight: 500; cursor: pointer; margin-left: 1rem; transition: opacity 0.2s;
+    }
+    .submit-hint button:hover { opacity: 0.88; }
+
+    /* Submit loading overlay */
+    .submit-loading {
+      display: none; position: fixed; inset: 0; background: rgba(250,248,244,0.92);
+      z-index: 50; flex-direction: column; align-items: center; justify-content: center; gap: 1rem;
+    }
+    .submit-loading.visible { display: flex; }
+    .submit-loading p { color: var(--warm-gray); font-size: 0.9rem; }
+    .submit-loading .sub { font-size: 0.78rem; color: #B8B2AA; }
+    .spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--gold); border-radius: 50%; animation: spin 0.9s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Input area */
+    .input-area {
+      background: white; border-top: 1px solid var(--border);
+      padding: 1rem 1.5rem; display: flex; gap: 0.75rem; align-items: flex-end; flex-shrink: 0;
+    }
+    .input-area textarea {
+      flex: 1; border: 1.5px solid var(--border); border-radius: 12px;
+      padding: 0.75rem 1rem; font-family: "Inter", sans-serif; font-size: 0.95rem;
+      resize: none; outline: none; background: var(--cream); color: var(--text);
+      min-height: 48px; max-height: 140px; line-height: 1.5; transition: border-color 0.2s;
+    }
+    .input-area textarea:focus { border-color: var(--navy); background: white; }
+    .input-area textarea::placeholder { color: var(--warm-gray); }
+    .btn-mic {
+      width: 44px; height: 44px; border-radius: 50%; border: 1.5px solid var(--border);
+      background: white; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; flex-shrink: 0; transition: all 0.2s; color: var(--warm-gray);
+    }
+    .btn-mic:hover { border-color: var(--navy); color: var(--navy); }
+    .btn-mic.listening { background: var(--red); border-color: var(--red); color: white; animation: mic-pulse 1s ease-in-out infinite; }
+    @keyframes mic-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+    .btn-send {
+      background: var(--navy); border: none; color: white; width: 44px; height: 44px;
+      border-radius: 10px; cursor: pointer; display: flex; align-items: center;
+      justify-content: center; flex-shrink: 0; transition: background 0.2s;
+    }
+    .btn-send:hover { background: var(--slate); }
+    .btn-send:disabled { opacity: 0.4; cursor: default; }
+    .btn-mic:disabled { opacity: 0.4; cursor: default; }
+
+    /* Listening label */
+    .listening-label { font-size: 0.72rem; color: var(--red); font-weight: 500; text-align: center; padding: 0.25rem 0; display: none; }
+    .listening-label.visible { display: block; }
+
+    /* ── Waiting state ── */
+    .polling-label { font-size: 0.75rem; color: #B8B2AA; margin-top: 0.5rem; }
+
+    /* ── Synthesis state ── */
+    #state-synthesis {
+      flex-direction: column; min-height: 100vh;
+    }
+    .synthesis-topbar {
+      background: white; border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between;
+    }
+    .synthesis-container { max-width: 680px; margin: 0 auto; padding: 2.5rem 1.5rem 5rem; }
+    .synthesis-eyebrow { font-size: 0.72rem; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gold); margin-bottom: 0.75rem; }
+    .synthesis-container h2 { font-family: "Cormorant Garamond", serif; font-size: 2.25rem; color: var(--navy); margin-bottom: 2rem; }
+    .synthesis-prose p { font-size: 0.97rem; line-height: 1.85; color: var(--text); margin-bottom: 1.25rem; }
+    .synthesis-prose p:last-child { margin-bottom: 0; }
+    .synthesis-actions { margin-top: 2.5rem; display: flex; flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+
+    .escalation-notice {
+      background: #FFF3F3; border: 1px solid #F5C6C6; border-radius: 12px;
+      padding: 1.5rem; margin-bottom: 1.5rem;
+    }
+    .escalation-notice strong { display: block; color: var(--red); margin-bottom: 0.5rem; }
+    .escalation-notice p { color: var(--text); line-height: 1.65; font-size: 0.9rem; margin-bottom: 0.5rem; }
+    .escalation-notice a { color: var(--red); font-weight: 500; }
+  </style>
+</head>
+<body>
+
+<!-- ── No Partner ── -->
+<div id="state-no-partner" class="state-panel panel-centered">
+  <div class="panel-icon">💬</div>
+  <h2>Your partner hasn't joined yet.</h2>
+  <p>This feature is available once your partner sets up their account. Share your invite code from the dashboard.</p>
+  <a href="/dashboard.html" class="btn-primary">Back to Dashboard</a>
+</div>
+
+<!-- ── No Argument (Start Screen) ── -->
+<div id="state-no-argument" class="state-panel panel-centered">
+  <div class="panel-icon">⚡</div>
+  <h2>We're Arguing.</h2>
+  <p>Seven will walk you through four steps — separately from <strong id="partner-name-start"></strong>. Neither of you will see the other's responses until a synthesis is ready.</p>
+  <p class="panel-hint">This takes about 10–15 minutes.</p>
+  <button class="btn-primary" onclick="beginArgument()">Begin My Side →</button>
+  <a href="/dashboard.html" class="btn-ghost">Back to Dashboard</a>
+</div>
+
+<!-- ── Chat (My Turn) ── -->
+<div id="state-chat" class="state-panel">
+  <div class="topbar">
+    <div class="topbar-logo">7 <span>Seasons</span></div>
+    <div class="snap-steps">
+      <div class="snap-step" id="snap-s" title="Seek the Root">S</div>
+      <div class="snap-step" id="snap-n" title="Never Punch Low">N</div>
+      <div class="snap-step" id="snap-a" title="Accept Blame">A</div>
+      <div class="snap-step" id="snap-p" title="Present a Solution">P</div>
+    </div>
+    <div class="topbar-name" id="topbar-name"></div>
+    <button class="btn-save-close" onclick="saveAndClose()">Save &amp; close</button>
+  </div>
+
+  <div class="chat-area" id="chat-area"></div>
+
+  <div class="submit-hint" id="submit-hint">
+    Seven has what they need from your side.
+    <button onclick="submitMySide()">Submit My Side →</button>
+  </div>
+
+  <div class="submit-loading" id="submit-loading">
+    <div class="spinner"></div>
+    <p>Processing your responses...</p>
+    <p class="sub">This may take up to 15 seconds.</p>
+  </div>
+
+  <div class="listening-label" id="listening-label">Listening...</div>
+  <div class="input-area" id="input-area">
+    <textarea id="msg-input" placeholder="Share your thoughts..." rows="1"></textarea>
+    <button class="btn-mic" id="mic-btn" onclick="toggleMic()" title="Tap to speak">
+      <svg fill="currentColor" viewBox="0 0 24 24" width="18" height="18">
+        <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/>
+      </svg>
+    </button>
+    <button class="btn-send" id="send-btn" onclick="sendMessage()">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="18" height="18">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+      </svg>
+    </button>
+  </div>
+</div>
+
+<!-- ── Waiting ── -->
+<div id="state-waiting" class="state-panel panel-centered">
+  <div class="panel-icon">⏳</div>
+  <h2>You're done.</h2>
+  <p>Waiting for <strong id="partner-name-waiting"></strong> to complete their side. This page will update automatically when they're done.</p>
+  <p class="polling-label" id="polling-label">Checking...</p>
+  <a href="/dashboard.html" class="btn-ghost">Back to Dashboard</a>
+</div>
+
+<!-- ── Synthesis ── -->
+<div id="state-synthesis" class="state-panel">
+  <div class="synthesis-topbar">
+    <div class="topbar-logo">7 <span>Seasons</span></div>
+    <a href="/dashboard.html" class="btn-ghost">Dashboard</a>
+  </div>
+  <div class="synthesis-container">
+    <div class="synthesis-eyebrow">Conflict Synthesis</div>
+    <h2 id="synthesis-heading">Your Conflict Synthesis</h2>
+    <div class="synthesis-prose" id="synthesis-prose"></div>
+    <div class="synthesis-actions">
+      <a href="/argue.html" class="btn-primary" onclick="startNew()">Start a New Conversation</a>
+      <a href="/dashboard.html" class="btn-ghost">Back to Dashboard</a>
+    </div>
+  </div>
+</div>
+
+<!-- ── Error ── -->
+<div id="state-error" class="state-panel panel-centered">
+  <div class="panel-icon">⚠</div>
+  <h2>Something went wrong.</h2>
+  <p id="error-msg">Please try again.</p>
+  <button class="btn-primary" onclick="init()">Try Again</button>
+  <a href="/dashboard.html" class="btn-ghost">Back to Dashboard</a>
+</div>
+
+<script>
+  // ── State ──────────────────────────────────────────────────────────────────
+  const individualId = localStorage.getItem("7s_individual_id");
+  const myName       = localStorage.getItem("7s_name");
+  if (!individualId) { window.location.href = "/"; }
+
+  document.getElementById("topbar-name").textContent = myName || "";
+
+  let argumentId      = null;
+  let partnerName     = "";
+  let isStreaming     = false;
+  let pollInterval    = null;
+  let snapSteps       = { s: false, n: false, a: false, p: false };
+
+  const SNAP_SIGNALS = {
+    s: "i think i understand what this is really about for you",
+    n: "i appreciate your honesty about how things were said",
+    a: "thank you for owning your part in this",
+    p: "i have what i need from your side"
+  };
+
+  const STATES = ["state-no-partner","state-no-argument","state-chat","state-waiting","state-synthesis","state-error"];
+
+  function setState(name) {
+    STATES.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.toggle("active", id === name);
+    });
+  }
+
+  // ── Boot ───────────────────────────────────────────────────────────────────
+  async function init() {
+    try {
+      const status = await fetch("/api/argue/status/" + individualId).then(r => r.json());
+      partnerName = status.partner?.name || "your partner";
+
+      if (status.state === "no_partner") {
+        setState("state-no-partner");
+      } else if (status.state === "no_argument") {
+        document.getElementById("partner-name-start").textContent = partnerName;
+        setState("state-no-argument");
+      } else if (status.state === "my_turn") {
+        argumentId = status.argument_id;
+        setState("state-chat");
+        if (status.has_messages) {
+          await loadExistingConversation();
+        } else {
+          await triggerStart();
+        }
+      } else if (status.state === "waiting") {
+        argumentId = status.argument_id;
+        showWaiting();
+      } else if (status.state === "synthesis") {
+        argumentId = status.argument_id;
+        showSynthesis(status.couple_view);
+      }
+    } catch {
+      setState("state-error");
+    }
+  }
+
+  // ── Begin (start screen button) ────────────────────────────────────────────
+  async function beginArgument() {
+    try {
+      const res  = await fetch("/api/argue/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ individual_id: individualId })
+      });
+      const data = await res.json();
+      argumentId = data.argument_id;
+      setState("state-chat");
+      await triggerStart();
+    } catch {
+      setState("state-error");
+    }
+  }
+
+  // ── Load existing conversation for resumption ──────────────────────────────
+  async function loadExistingConversation() {
+    try {
+      const data = await fetch(`/api/argue/${argumentId}/messages/${individualId}`).then(r => r.json());
+      data.messages.forEach(m => {
+        addBubble(m.role === "user" ? "user" : "ai", m.content);
+        if (m.role === "assistant") checkSnapSignals(m.content);
+      });
+      scrollToBottom();
+      setInputEnabled(true);
+    } catch {
+      await triggerStart();
+    }
+  }
+
+  // ── Trigger AI intro ───────────────────────────────────────────────────────
+  async function triggerStart() {
+    setInputEnabled(false);
+    await streamMessage("__START__");
+    setInputEnabled(true);
+  }
+
+  // ── Chat helpers ───────────────────────────────────────────────────────────
+  function scrollToBottom() {
+    const area = document.getElementById("chat-area");
+    area.scrollTop = area.scrollHeight;
+  }
+
+  function addBubble(role, text) {
+    const area  = document.getElementById("chat-area");
+    const wrap  = document.createElement("div");
+    wrap.className = "bubble-wrap " + role;
+
+    const avatar = document.createElement("div");
+    avatar.className = "bubble-avatar" + (role === "user" ? " user-av" : "");
+    avatar.textContent = role === "user" ? (myName || "You").charAt(0).toUpperCase() : "7";
+
+    const bubble = document.createElement("div");
+    bubble.className = "bubble " + role;
+    if (role === "ai" && text) {
+      bubble.innerHTML = escapeHTML(text).replace(/([^!?\n]+\?)/g, "<strong>$1</strong>");
+    } else {
+      bubble.textContent = text || "";
+    }
+
+    wrap.appendChild(avatar);
+    wrap.appendChild(bubble);
+    area.appendChild(wrap);
+    scrollToBottom();
+    return bubble;
+  }
+
+  function escapeHTML(t) {
+    return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  function addTypingIndicator() {
+    const area = document.getElementById("chat-area");
+    const wrap = document.createElement("div");
+    wrap.className = "bubble-wrap ai";
+    wrap.id = "typing-wrap";
+    const av = document.createElement("div");
+    av.className = "bubble-avatar";
+    av.textContent = "7";
+    const b = document.createElement("div");
+    b.className = "bubble ai";
+    b.innerHTML = '<span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>';
+    b.style.padding = "1rem 1.25rem";
+    wrap.appendChild(av);
+    wrap.appendChild(b);
+    area.appendChild(wrap);
+    scrollToBottom();
+  }
+
+  function removeTypingIndicator() {
+    const el = document.getElementById("typing-wrap");
+    if (el) el.remove();
+  }
+
+  function setInputEnabled(enabled) {
+    document.getElementById("msg-input").disabled   = !enabled;
+    document.getElementById("send-btn").disabled    = !enabled;
+    document.getElementById("mic-btn").disabled     = !enabled;
+  }
+
+  // ── SNAP step tracking ─────────────────────────────────────────────────────
+  function checkSnapSignals(text) {
+    const lower = text.toLowerCase();
+    if (!snapSteps.s && lower.includes(SNAP_SIGNALS.s)) {
+      snapSteps.s = true;
+      document.getElementById("snap-s").classList.add("done");
+      document.getElementById("snap-n").classList.add("active");
+    }
+    if (!snapSteps.n && lower.includes(SNAP_SIGNALS.n)) {
+      snapSteps.n = true;
+      document.getElementById("snap-n").classList.add("done");
+      document.getElementById("snap-a").classList.add("active");
+    }
+    if (!snapSteps.a && lower.includes(SNAP_SIGNALS.a)) {
+      snapSteps.a = true;
+      document.getElementById("snap-a").classList.add("done");
+      document.getElementById("snap-p").classList.add("active");
+    }
+    if (!snapSteps.p && lower.includes(SNAP_SIGNALS.p)) {
+      snapSteps.p = true;
+      document.getElementById("snap-p").classList.add("done");
+      document.getElementById("submit-hint").classList.add("visible");
+    }
+  }
+
+  // ── Send message ───────────────────────────────────────────────────────────
+  async function sendMessage() {
+    if (isStreaming) return;
+    const input = document.getElementById("msg-input");
+    const text  = input.value.trim();
+    if (!text) return;
+    input.value = "";
+    input.style.height = "auto";
+    addBubble("user", text);
+    setInputEnabled(false);
+    await streamMessage(text);
+    setInputEnabled(true);
+  }
+
+  document.getElementById("msg-input").addEventListener("keydown", function(e) {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  });
+  document.getElementById("msg-input").addEventListener("input", function() {
+    this.style.height = "auto";
+    this.style.height = Math.min(this.scrollHeight, 140) + "px";
+  });
+
+  // ── Stream SNAP response ───────────────────────────────────────────────────
+  async function streamMessage(userMessage) {
+    isStreaming = true;
+    addTypingIndicator();
+    let fullText = "";
+    let aiBubble = null;
+
+    try {
+      const res = await fetch("/api/argue/message", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ argument_id: argumentId, individual_id: individualId, message: userMessage })
+      });
+
+      if (!res.ok) {
+        removeTypingIndicator();
+        addBubble("ai", "Something went wrong. Please try again.");
+        isStreaming = false;
+        return;
+      }
+
+      const reader  = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer    = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop();
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const payload = line.slice(6).trim();
+          if (payload === "[DONE]") break;
+          try {
+            const data = JSON.parse(payload);
+            if (data.text) {
+              if (!aiBubble) {
+                removeTypingIndicator();
+                aiBubble = addBubble("ai", "");
+              }
+              fullText += data.text;
+              aiBubble.textContent = fullText;
+              scrollToBottom();
+            }
+          } catch {}
+        }
+      }
+
+      // Format final bubble
+      if (aiBubble) {
+        aiBubble.innerHTML = escapeHTML(fullText).replace(/([^!?\n]+\?)/g, "<strong>$1</strong>");
+      }
+      checkSnapSignals(fullText);
+
+    } catch {
+      removeTypingIndicator();
+      addBubble("ai", "Connection error. Please try again.");
+    }
+
+    isStreaming = false;
+    document.getElementById("msg-input").focus();
+  }
+
+  // ── Submit my side ─────────────────────────────────────────────────────────
+  async function submitMySide() {
+    if (micShouldBeActive) { micShouldBeActive = false; if (recognition) try { recognition.abort(); } catch {} }
+
+    document.getElementById("submit-hint").classList.remove("visible");
+    document.getElementById("input-area").style.display = "none";
+    document.getElementById("submit-loading").classList.add("visible");
+
+    try {
+      const res  = await fetch("/api/argue/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ argument_id: argumentId, individual_id: individualId })
+      });
+      const data = await res.json();
+
+      document.getElementById("submit-loading").classList.remove("visible");
+
+      if (data.state === "synthesis") {
+        showSynthesis(data.couple_view);
+      } else {
+        showWaiting();
+      }
+    } catch {
+      document.getElementById("submit-loading").classList.remove("visible");
+      document.getElementById("input-area").style.display = "flex";
+      document.getElementById("submit-hint").classList.add("visible");
+      alert("Something went wrong submitting. Please try again.");
+    }
+  }
+
+  // ── Waiting + polling ──────────────────────────────────────────────────────
+  function showWaiting() {
+    document.getElementById("partner-name-waiting").textContent = partnerName;
+    setState("state-waiting");
+    startPolling();
+  }
+
+  function startPolling() {
+    let count = 0;
+    pollInterval = setInterval(async () => {
+      count++;
+      document.getElementById("polling-label").textContent = "Checked " + count + " time" + (count > 1 ? "s" : "") + "...";
+      try {
+        const status = await fetch("/api/argue/status/" + individualId).then(r => r.json());
+        if (status.state === "synthesis") {
+          clearInterval(pollInterval);
+          showSynthesis(status.couple_view);
+        }
+      } catch {}
+    }, 8000);
+  }
+
+  // ── Synthesis display ──────────────────────────────────────────────────────
+  function showSynthesis(coupleView) {
+    if (pollInterval) clearInterval(pollInterval);
+
+    const prose = document.getElementById("synthesis-prose");
+
+    if (coupleView.escalation_required) {
+      prose.innerHTML = `
+        <div class="escalation-notice">
+          <strong>Seven recommends speaking with a licensed counselor.</strong>
+          <p>Based on what was shared, this situation may benefit from professional support before attempting resolution together.</p>
+          <p>National DV Hotline: <a href="tel:18007997233">1-800-799-7233</a> (call or text)</p>
+          <p>Crisis Text Line: Text START to <a href="sms:741741">741741</a></p>
+        </div>`;
+    } else {
+      const paras = (coupleView.synthesis || "").split("\n\n")
+        .filter(p => p.trim())
+        .map(p => `<p>${escapeHTML(p.trim())}</p>`)
+        .join("");
+      prose.innerHTML = paras || "<p>Your synthesis is ready.</p>";
+    }
+
+    setState("state-synthesis");
+  }
+
+  // ── Save & close ───────────────────────────────────────────────────────────
+  function saveAndClose() {
+    if (micShouldBeActive) { micShouldBeActive = false; if (recognition) try { recognition.abort(); } catch {} }
+    window.location.href = "/dashboard.html";
+  }
+
+  function startNew() {
+    localStorage.removeItem("7s_argue_id");
+    window.location.href = "/argue.html";
+  }
+
+  // ── Voice Input ────────────────────────────────────────────────────────────
+  let recognition      = null;
+  let micShouldBeActive = false;
+
+  function setupSpeechRecognition() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { document.getElementById("mic-btn").style.display = "none"; return; }
+    recognition = new SR();
+    recognition.continuous     = true;
+    recognition.interimResults = true;
+    recognition.lang           = "en-US";
+
+    recognition.onstart = () => {
+      document.getElementById("mic-btn").classList.add("listening");
+      document.getElementById("listening-label").classList.add("visible");
+    };
+    recognition.onresult = (e) => {
+      const t  = Array.from(e.results).map(r => r[0].transcript).join("");
+      const ta = document.getElementById("msg-input");
+      ta.value = t;
+      ta.style.height = "auto";
+      ta.style.height = Math.min(ta.scrollHeight, 140) + "px";
+    };
+    recognition.onend = () => {
+      if (micShouldBeActive && !isStreaming) { try { recognition.start(); } catch {} return; }
+      document.getElementById("mic-btn").classList.remove("listening");
+      document.getElementById("listening-label").classList.remove("visible");
+      const text = document.getElementById("msg-input").value.trim();
+      if (text && !isStreaming) sendMessage();
+    };
+    recognition.onerror = (e) => {
+      if (e.error === "aborted") return;
+      if (e.error === "no-speech" && micShouldBeActive && !isStreaming) { try { recognition.start(); } catch {} return; }
+      micShouldBeActive = false;
+      document.getElementById("mic-btn").classList.remove("listening");
+      document.getElementById("listening-label").classList.remove("visible");
+    };
+  }
+
+  function toggleMic() {
+    if (!recognition || isStreaming) return;
+    if (micShouldBeActive) { micShouldBeActive = false; recognition.stop(); }
+    else { micShouldBeActive = true; try { recognition.start(); } catch {} }
+  }
+
+  async function checkAuth() {
+    try {
+      const res = await fetch("/api/auth/me");
+      if (!res.ok) { window.location.href = "/login.html"; return false; }
+      const user = await res.json();
+      individualId = user.individual_id;
+      myName       = user.name;
+      localStorage.setItem("7s_individual_id", user.individual_id);
+      localStorage.setItem("7s_couple_id",     user.couple_id);
+      localStorage.setItem("7s_name",          user.name);
+      document.getElementById("topbar-name").textContent = user.name;
+      return true;
+    } catch { window.location.href = "/login.html"; return false; }
+  }
+
+  async function logout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    localStorage.clear();
+    window.location.href = "/login.html";
+  }
+
+  // ── Boot ───────────────────────────────────────────────────────────────────
+  setupSpeechRecognition();
+  document.getElementById("snap-s").classList.add("active");
+  checkAuth().then(ok => { if (ok) init(); });
+</script>
+
+</body>
+</html>

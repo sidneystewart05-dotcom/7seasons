@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>7 Seasons</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy: #1C2B3A;
+      --slate: #2D3F50;
+      --gold: #C4963A;
+      --gold-light: #E8C97A;
+      --cream: #FAF8F4;
+      --warm-gray: #8C8178;
+      --text: #2A2A2A;
+      --border: #E0D9D0;
+    }
+
+    body {
+      font-family: "Inter", sans-serif;
+      background: var(--cream);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Landing ── */
+    .landing {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+    }
+
+    header {
+      padding: 2rem 2.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      font-family: "Cormorant Garamond", serif;
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--navy);
+      letter-spacing: 0.02em;
+    }
+
+    .logo span {
+      color: var(--gold);
+    }
+
+    .hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 3rem 1.5rem;
+      gap: 2rem;
+    }
+
+    .hero-eyebrow {
+      font-size: 0.75rem;
+      font-weight: 500;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--gold);
+    }
+
+    .hero h1 {
+      font-family: "Cormorant Garamond", serif;
+      font-size: clamp(3rem, 8vw, 5.5rem);
+      font-weight: 600;
+      color: var(--navy);
+      line-height: 1.1;
+    }
+
+    .hero h1 em {
+      font-style: italic;
+      color: var(--gold);
+    }
+
+    .hero-sub {
+      font-size: 1.05rem;
+      color: var(--warm-gray);
+      max-width: 480px;
+      line-height: 1.7;
+      font-weight: 300;
+    }
+
+    .season-strip {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 600px;
+    }
+
+    .season-pill {
+      font-size: 0.7rem;
+      font-weight: 500;
+      letter-spacing: 0.05em;
+      padding: 0.35rem 0.85rem;
+      border-radius: 100px;
+      background: white;
+      border: 1px solid var(--border);
+      color: var(--warm-gray);
+    }
+
+    .cta-group {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      width: 100%;
+      max-width: 360px;
+    }
+
+    .btn-primary {
+      background: var(--navy);
+      color: white;
+      border: none;
+      padding: 1rem 2rem;
+      border-radius: 8px;
+      font-family: "Inter", sans-serif;
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+      letter-spacing: 0.02em;
+    }
+    .btn-primary:hover { background: var(--slate); }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--navy);
+      border: 1.5px solid var(--border);
+      padding: 1rem 2rem;
+      border-radius: 8px;
+      font-family: "Inter", sans-serif;
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .btn-secondary:hover { border-color: var(--navy); }
+
+    .returning-banner {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      cursor: pointer;
+      transition: box-shadow 0.2s;
+      width: 100%;
+      max-width: 360px;
+    }
+    .returning-banner:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+
+    .returning-banner .rb-text { text-align: left; flex: 1; }
+    .returning-banner .rb-name { font-weight: 500; font-size: 0.95rem; color: var(--navy); }
+    .returning-banner .rb-hint { font-size: 0.8rem; color: var(--warm-gray); margin-top: 0.1rem; }
+    .returning-banner .rb-arrow { color: var(--gold); font-size: 1.25rem; }
+
+    footer {
+      text-align: center;
+      padding: 2rem;
+      font-size: 0.75rem;
+      color: var(--warm-gray);
+    }
+
+    /* ── Modals ── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(28,43,58,0.5);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: white;
+      border-radius: 16px;
+      padding: 2.5rem;
+      width: 100%;
+      max-width: 440px;
+      position: relative;
+    }
+
+    .modal h2 {
+      font-family: "Cormorant Garamond", serif;
+      font-size: 1.75rem;
+      color: var(--navy);
+      margin-bottom: 0.5rem;
+    }
+
+    .modal p {
+      font-size: 0.9rem;
+      color: var(--warm-gray);
+      margin-bottom: 1.75rem;
+      line-height: 1.6;
+    }
+
+    .modal label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--warm-gray);
+      margin-bottom: 0.5rem;
+    }
+
+    .modal input {
+      width: 100%;
+      padding: 0.85rem 1rem;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      font-family: "Inter", sans-serif;
+      font-size: 1rem;
+      color: var(--text);
+      background: var(--cream);
+      margin-bottom: 1.25rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .modal input:focus { border-color: var(--navy); background: white; }
+
+    .modal-actions { display: flex; gap: 0.75rem; margin-top: 0.5rem; }
+    .modal-actions .btn-primary { flex: 1; }
+    .modal-actions .btn-cancel {
+      background: none;
+      border: none;
+      color: var(--warm-gray);
+      cursor: pointer;
+      font-family: "Inter", sans-serif;
+      font-size: 0.9rem;
+      padding: 0.85rem 1rem;
+    }
+
+    .error-msg {
+      color: #C0392B;
+      font-size: 0.85rem;
+      margin-top: -0.75rem;
+      margin-bottom: 1rem;
+    }
+  </style>
+</head>
+<body>
+
+<div class="landing">
+  <header>
+    <div class="logo">7 <span>Seasons</span></div>
+  </header>
+
+  <main class="hero">
+    <div class="hero-eyebrow">A Marriage Operating System</div>
+    <h1>Every marriage<br>tells <em>a story</em></h1>
+    <p class="hero-sub">7 Seasons helps couples understand themselves, understand each other, and prepare for every season ahead — from engagement to legacy.</p>
+
+    <div class="season-strip">
+      <span class="season-pill">Engagement</span>
+      <span class="season-pill">Building a Home</span>
+      <span class="season-pill">Young Children</span>
+      <span class="season-pill">School Age</span>
+      <span class="season-pill">Teenagers</span>
+      <span class="season-pill">Empty Nest</span>
+      <span class="season-pill">Legacy</span>
+    </div>
+
+    <div id="returning-wrap" style="display:none; width:100%; max-width:360px;">
+      <div class="returning-banner" onclick="continueJourney()">
+        <div class="rb-text">
+          <div class="rb-name" id="returning-name">Continue as Sarah</div>
+          <div class="rb-hint">Resume your discovery journey</div>
+        </div>
+        <div class="rb-arrow">→</div>
+      </div>
+      <div style="text-align:center; margin-top:0.6rem;">
+        <button onclick="switchUser()" style="background:none;border:none;font-family:'Inter',sans-serif;font-size:0.78rem;color:var(--warm-gray);cursor:pointer;text-decoration:underline;">Not you? Switch account</button>
+      </div>
+    </div>
+
+    <div class="cta-group" id="main-ctas">
+      <button class="btn-primary" onclick="openModal('create')">Begin Your Journey</button>
+      <button class="btn-secondary" onclick="openModal('join')">Join Your Partner</button>
+      <a href="/login.html" style="font-size:0.82rem; color:var(--warm-gray); text-decoration:none; text-align:center;">Already have an account? Sign in →</a>
+    </div>
+  </main>
+
+  <footer>7 Seasons · A Marriage Operating System</footer>
+</div>
+
+<!-- Create Modal -->
+<div class="modal-overlay" id="modal-create">
+  <div class="modal">
+    <h2>Begin Your Journey</h2>
+    <p>Create your account. Your partner will join with an invite code you'll receive.</p>
+    <label for="create-name">Your First Name</label>
+    <input type="text" id="create-name" placeholder="e.g. Sarah" maxlength="50" autocomplete="off">
+    <label for="create-email">Email</label>
+    <input type="email" id="create-email" placeholder="you@example.com" autocomplete="email">
+    <label for="create-password">Password</label>
+    <input type="password" id="create-password" placeholder="At least 6 characters" autocomplete="new-password">
+    <div id="create-error" class="error-msg" style="display:none;"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModals()">Cancel</button>
+      <button class="btn-primary" onclick="createCouple()">Begin</button>
+    </div>
+  </div>
+</div>
+
+<!-- Join Modal -->
+<div class="modal-overlay" id="modal-join">
+  <div class="modal">
+    <h2>Join Your Partner</h2>
+    <p>Enter your partner's invite code and create your account.</p>
+    <label for="join-code">Invite Code</label>
+    <input type="text" id="join-code" placeholder="e.g. A1B2C3" maxlength="6" autocomplete="off" style="text-transform:uppercase; letter-spacing:0.2em; font-size:1.4rem; text-align:center;">
+    <label for="join-name">Your First Name</label>
+    <input type="text" id="join-name" placeholder="e.g. James" maxlength="50" autocomplete="off">
+    <label for="join-email">Email</label>
+    <input type="email" id="join-email" placeholder="you@example.com" autocomplete="email">
+    <label for="join-password">Password</label>
+    <input type="password" id="join-password" placeholder="At least 6 characters" autocomplete="new-password">
+    <div id="join-error" class="error-msg" style="display:none;"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModals()">Cancel</button>
+      <button class="btn-primary" onclick="joinCouple()">Join</button>
+    </div>
+  </div>
+</div>
+
+<!-- Login Modal -->
+<div class="modal-overlay" id="modal-login">
+  <div class="modal">
+    <h2>Return to My Account</h2>
+    <p>Enter your invite code and first name to pick up where you left off.</p>
+    <label for="login-code">Invite Code</label>
+    <input type="text" id="login-code" placeholder="e.g. A1B2C3" maxlength="6" autocomplete="off" style="text-transform:uppercase; letter-spacing:0.2em; font-size:1.4rem; text-align:center;">
+    <label for="login-name">Your First Name</label>
+    <input type="text" id="login-name" placeholder="e.g. Sidney" maxlength="50" autocomplete="off">
+    <div id="login-error" class="error-msg" style="display:none;"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModals()">Cancel</button>
+      <button class="btn-primary" onclick="loginUser()">Continue →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const stored = localStorage.getItem("7s_individual_id");
+  const storedName = localStorage.getItem("7s_name");
+
+  if (stored && storedName) {
+    document.getElementById("returning-wrap").style.display = "block";
+    document.getElementById("returning-name").textContent = "Continue as " + storedName;
+  }
+
+  function continueJourney() {
+    window.location.href = "/onboarding.html";
+  }
+
+  function openModal(type) {
+    document.getElementById("modal-" + type).classList.add("open");
+    setTimeout(() => {
+      const input = document.getElementById(type === "create" ? "create-name" : "join-code");
+      if (input) input.focus();
+    }, 50);
+  }
+
+  function closeModals() {
+    document.querySelectorAll(".modal-overlay").forEach(m => m.classList.remove("open"));
+  }
+
+  document.querySelectorAll(".modal-overlay").forEach(overlay => {
+    overlay.addEventListener("click", e => { if (e.target === overlay) closeModals(); });
+  });
+
+  document.addEventListener("keydown", e => { if (e.key === "Escape") closeModals(); });
+
+  document.getElementById("join-code").addEventListener("input", function() {
+    this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  });
+
+  async function createCouple() {
+    const name     = document.getElementById("create-name").value.trim();
+    const email    = document.getElementById("create-email").value.trim();
+    const password = document.getElementById("create-password").value;
+    const err      = document.getElementById("create-error");
+    err.style.display = "none";
+
+    if (!name)     { showError(err, "Please enter your name."); return; }
+    if (!email)    { showError(err, "Please enter your email."); return; }
+    if (!password) { showError(err, "Please enter a password."); return; }
+
+    try {
+      const res  = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password })
+      });
+      const data = await res.json();
+      if (!res.ok) { showError(err, data.error); return; }
+
+      localStorage.setItem("7s_individual_id", data.individual_id);
+      localStorage.setItem("7s_couple_id",     data.couple_id);
+      localStorage.setItem("7s_name",          data.name);
+      window.location.href = "/onboarding.html";
+    } catch {
+      showError(err, "Something went wrong. Please try again.");
+    }
+  }
+
+  async function joinCouple() {
+    const code     = document.getElementById("join-code").value.trim();
+    const name     = document.getElementById("join-name").value.trim();
+    const email    = document.getElementById("join-email").value.trim();
+    const password = document.getElementById("join-password").value;
+    const err      = document.getElementById("join-error");
+    err.style.display = "none";
+
+    if (!code || code.length !== 6) { showError(err, "Please enter your 6-character invite code."); return; }
+    if (!name)     { showError(err, "Please enter your name."); return; }
+    if (!email)    { showError(err, "Please enter your email."); return; }
+    if (!password) { showError(err, "Please enter a password."); return; }
+
+    try {
+      const res  = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password, invite_code: code })
+      });
+      const data = await res.json();
+      if (!res.ok) { showError(err, data.error); return; }
+
+      localStorage.setItem("7s_individual_id", data.individual_id);
+      localStorage.setItem("7s_couple_id",     data.couple_id);
+      localStorage.setItem("7s_name",          data.name);
+      window.location.href = "/onboarding.html";
+    } catch {
+      showError(err, "Something went wrong. Please try again.");
+    }
+  }
+
+  function showError(el, msg) {
+    el.textContent = msg;
+    el.style.display = "block";
+  }
+
+  function switchUser() {
+    localStorage.removeItem("7s_individual_id");
+    localStorage.removeItem("7s_couple_id");
+    localStorage.removeItem("7s_name");
+    document.getElementById("returning-wrap").style.display = "none";
+    document.getElementById("main-ctas").style.display = "flex";
+  }
+
+  async function loginUser() {
+    const code = document.getElementById("login-code").value.trim().toUpperCase();
+    const name = document.getElementById("login-name").value.trim();
+    const err  = document.getElementById("login-error");
+    err.style.display = "none";
+
+    if (!code || code.length !== 6) { showError(err, "Please enter your 6-character invite code."); return; }
+    if (!name) { showError(err, "Please enter your first name."); return; }
+
+    try {
+      const res  = await fetch("/api/me/lookup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ invite_code: code, name })
+      });
+      const data = await res.json();
+      if (!res.ok) { showError(err, data.error); return; }
+
+      localStorage.setItem("7s_individual_id", data.individual_id);
+      localStorage.setItem("7s_couple_id", data.couple_id);
+      localStorage.setItem("7s_name", data.name);
+      window.location.href = "/onboarding.html";
+    } catch {
+      showError(err, "Something went wrong. Please try again.");
+    }
+  }
+
+  document.getElementById("login-code").addEventListener("input", function() {
+    this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  });
+</script>
+
+</body>
+</html>

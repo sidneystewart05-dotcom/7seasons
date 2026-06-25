@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Counselor Report · 7 Seasons</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --navy: #1C2B3A; --slate: #2D3F50; --gold: #C4963A;
+      --cream: #FAF8F4; --warm-gray: #8C8178; --text: #2A2A2A; --border: #E0D9D0;
+    }
+    body { font-family: "Inter", sans-serif; background: var(--cream); color: var(--text); min-height: 100vh; }
+
+    .topbar {
+      background: white; border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between;
+    }
+    .logo { font-family: "Cormorant Garamond", serif; font-size: 1.25rem; font-weight: 600; color: var(--navy); }
+    .logo span { color: var(--gold); }
+    .counselor-badge {
+      font-size: 0.7rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase;
+      background: #F0EDE6; color: var(--warm-gray); padding: 0.3rem 0.75rem; border-radius: 100px;
+    }
+
+    .container { max-width: 960px; margin: 0 auto; padding: 2.5rem 1.5rem 5rem; }
+
+    .page-header { margin-bottom: 2.5rem; padding-bottom: 2rem; border-bottom: 1px solid var(--border); }
+    .page-header .eyebrow { font-size: 0.72rem; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gold); margin-bottom: 0.75rem; }
+    .page-header h1 { font-family: "Cormorant Garamond", serif; font-size: 2.5rem; color: var(--navy); margin-bottom: 0.5rem; }
+    .page-header .meta { font-size: 0.85rem; color: var(--warm-gray); }
+
+    .section-title {
+      font-size: 0.72rem; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--warm-gray); margin-bottom: 1.25rem; padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* Counselor notes */
+    .counselor-notes {
+      background: #FFF8EC; border: 1px solid #F0DFB0; border-radius: 12px;
+      padding: 1.5rem; margin-bottom: 2.5rem;
+    }
+    .counselor-notes h3 { font-size: 0.72rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: #A07020; margin-bottom: 0.75rem; }
+    .counselor-notes p { font-size: 0.92rem; line-height: 1.75; color: var(--text); }
+
+    /* Marriage overview */
+    .model-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 2.5rem; }
+    @media (max-width: 700px) { .model-grid { grid-template-columns: 1fr; } }
+
+    .model-card { background: white; border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; }
+    .model-card h3 { font-size: 0.7rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--warm-gray); margin-bottom: 0.85rem; }
+    .model-card ul { list-style: none; display: flex; flex-direction: column; gap: 0.6rem; }
+    .model-card li { font-size: 0.85rem; color: var(--text); line-height: 1.5; }
+    .model-card li strong { display: block; font-weight: 500; }
+    .model-card li span { font-size: 0.8rem; color: var(--warm-gray); }
+    .severity-significant { color: #C0392B; font-size: 0.7rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
+    .severity-moderate { color: #A07020; font-size: 0.7rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
+    .severity-low { color: var(--warm-gray); font-size: 0.7rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
+
+    /* Spouse profiles */
+    .spouse-section { margin-bottom: 2.5rem; }
+    .spouse-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem; }
+    .spouse-avatar {
+      width: 36px; height: 36px; border-radius: 50%; background: var(--navy);
+      color: white; display: flex; align-items: center; justify-content: center;
+      font-size: 0.85rem; font-weight: 500; flex-shrink: 0;
+    }
+    .spouse-name { font-size: 1.1rem; font-weight: 500; color: var(--navy); }
+
+    .dimension-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.75rem; }
+
+    .dim-card { background: white; border: 1px solid var(--border); border-radius: 8px; padding: 0.9rem 1rem; }
+    .dim-label { font-size: 0.72rem; color: var(--warm-gray); margin-bottom: 0.4rem; font-weight: 500; }
+    .dim-bar-wrap { display: flex; align-items: center; gap: 0.75rem; }
+    .dim-bar { flex: 1; height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
+    .dim-fill { height: 100%; border-radius: 3px; }
+    .dim-score { font-size: 0.78rem; font-weight: 600; color: var(--navy); width: 1.5rem; text-align: right; }
+    .dim-confidence { font-size: 0.68rem; color: var(--warm-gray); margin-top: 0.35rem; }
+    .dim-note { font-size: 0.72rem; color: var(--warm-gray); margin-top: 0.3rem; font-style: italic; line-height: 1.4; }
+
+    /* Domain summaries */
+    .domain-summaries { margin-bottom: 2.5rem; }
+    .domain-row { background: white; border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 0.5rem; }
+    .domain-row h4 { font-size: 0.8rem; font-weight: 500; color: var(--navy); margin-bottom: 0.35rem; }
+    .domain-row p { font-size: 0.83rem; color: var(--warm-gray); line-height: 1.55; }
+    .domain-themes { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.5rem; }
+    .theme-tag { font-size: 0.68rem; background: #F0EDE6; color: var(--warm-gray); padding: 0.2rem 0.6rem; border-radius: 100px; }
+
+    /* Counselor season notes */
+    .season-counselor { background: white; border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem; margin-bottom: 0.75rem; }
+    .season-counselor .sc-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; }
+    .season-num { width: 32px; height: 32px; border-radius: 50%; background: var(--navy); color: white; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: 600; flex-shrink: 0; }
+    .season-counselor h4 { font-size: 0.92rem; font-weight: 500; color: var(--navy); }
+    .season-counselor ul { list-style: none; display: flex; flex-direction: column; gap: 0.4rem; }
+    .season-counselor li { font-size: 0.83rem; color: var(--warm-gray); line-height: 1.5; display: flex; gap: 0.5rem; }
+    .season-counselor li::before { content: "→"; color: var(--gold); flex-shrink: 0; }
+
+    .loading { text-align: center; padding: 4rem; color: var(--warm-gray); }
+    .error { text-align: center; padding: 3rem; color: var(--warm-gray); }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">7 <span>Seasons</span></div>
+  <div class="counselor-badge">Counselor View</div>
+</div>
+
+<div class="container">
+  <div id="content"><div class="loading">Loading report...</div></div>
+</div>
+
+<script>
+  const params = new URLSearchParams(window.location.search);
+  const coupleId = params.get("couple");
+
+  if (!coupleId) {
+    document.getElementById("content").innerHTML = '<div class="error">No couple ID provided. Share the full counselor URL with this page.</div>';
+  } else {
+    load();
+  }
+
+  async function load() {
+    try {
+      const res = await fetch("/api/counselor/" + coupleId);
+      if (!res.ok) {
+        document.getElementById("content").innerHTML = '<div class="error">Report not found or not yet generated.</div>';
+        return;
+      }
+      const data = await res.json();
+      render(data);
+    } catch (e) {
+      document.getElementById("content").innerHTML = '<div class="error">Failed to load report.</div>';
+    }
+  }
+
+  function scoreColor(score) {
+    if (score >= 7) return "#2D7A45";
+    if (score >= 4) return "#C4963A";
+    return "#2D3F50";
+  }
+
+  function formatDimKey(key) {
+    return key.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase());
+  }
+
+  function render(data) {
+    const names = data.spouses.map(s => s.name).join(" & ");
+    const model = data.marriage_model || {};
+    const seasons = data.trajectory_seasons || [];
+
+    let html = `
+      <div class="page-header">
+        <div class="eyebrow">Counselor Report · 7 Seasons</div>
+        <h1>${names}</h1>
+        <div class="meta">Generated ${data.generated_at ? new Date(data.generated_at).toLocaleDateString("en-US", {year:"numeric",month:"long",day:"numeric"}) : "—"} &nbsp;·&nbsp; Confidential</div>
+      </div>
+
+      ${data.counselor_notes ? `
+      <div class="counselor-notes">
+        <h3>Counselor Observations</h3>
+        <p>${data.counselor_notes}</p>
+      </div>` : ""}
+
+      <div class="section-title">Marriage Model Overview</div>
+      <div class="model-grid">
+        <div class="model-card">
+          <h3>Strengths</h3>
+          <ul>
+            ${(model.strengths || []).map(s => `<li><strong>${s.title}</strong><span>${s.description}</span></li>`).join("")}
+          </ul>
+        </div>
+        <div class="model-card">
+          <h3>Growth Areas</h3>
+          <ul>
+            ${(model.growth_areas || []).map(g => `<li><strong>${g.title}</strong><span>${g.description}</span></li>`).join("")}
+          </ul>
+        </div>
+        <div class="model-card">
+          <h3>Friction Points</h3>
+          <ul>
+            ${(model.friction_points || []).map(f => `
+              <li>
+                <strong>${f.title}</strong>
+                <span>${f.description}</span>
+                <span class="severity-${f.severity || "low"}">${f.severity || ""}</span>
+              </li>`).join("")}
+          </ul>
+        </div>
+      </div>
+    `;
+
+    // Spouse profiles with dimensions
+    data.spouses.forEach(spouse => {
+      const dims = spouse.dimensions || {};
+      const summaries = spouse.domain_summaries || {};
+      const initial = spouse.name.charAt(0).toUpperCase();
+
+      html += `
+        <div class="spouse-section">
+          <div class="spouse-header">
+            <div class="spouse-avatar">${initial}</div>
+            <div class="spouse-name">${spouse.name}</div>
+          </div>
+
+          <div class="section-title">Dimension Profile</div>
+          <div class="dimension-grid">
+            ${Object.entries(dims).map(([key, val]) => {
+              const score = val.score || 5;
+              const pct = (score / 10 * 100).toFixed(0);
+              return `
+                <div class="dim-card">
+                  <div class="dim-label">${formatDimKey(key)}</div>
+                  <div class="dim-bar-wrap">
+                    <div class="dim-bar"><div class="dim-fill" style="width:${pct}%; background:${scoreColor(score)};"></div></div>
+                    <div class="dim-score">${score}</div>
+                  </div>
+                  <div class="dim-confidence">Confidence: ${val.confidence || "—"}</div>
+                  ${val.note ? `<div class="dim-note">${val.note}</div>` : ""}
+                </div>`;
+            }).join("")}
+          </div>
+
+          ${Object.keys(summaries).length ? `
+          <div style="margin-top:1.5rem;">
+            <div class="section-title">Domain Summaries</div>
+            <div class="domain-summaries">
+              ${Object.entries(summaries).map(([key, val]) => `
+                <div class="domain-row">
+                  <h4>${key.replace(/_/g," ").replace(/\b\w/g,l=>l.toUpperCase())}</h4>
+                  <p>${val.summary || ""}</p>
+                  ${val.themes?.length ? `<div class="domain-themes">${val.themes.map(t => `<span class="theme-tag">${t}</span>`).join("")}</div>` : ""}
+                </div>`).join("")}
+            </div>
+          </div>` : ""}
+        </div>
+      `;
+    });
+
+    // Counselor season notes
+    if (seasons.length) {
+      html += `
+        <div class="section-title">Counselor Discussion Topics by Season</div>
+        ${seasons.map(s => `
+          <div class="season-counselor">
+            <div class="sc-header">
+              <div class="season-num">${s.season}</div>
+              <h4>${s.name}</h4>
+            </div>
+            ${s.counselor_topics?.length ? `
+            <ul>${s.counselor_topics.map(t => `<li>${t}</li>`).join("")}</ul>` : "<p style='font-size:0.83rem;color:var(--warm-gray)'>No specific topics flagged for this season.</p>"}
+          </div>`).join("")}
+      `;
+    }
+
+    document.getElementById("content").innerHTML = html;
+  }
+</script>
+
+</body>
+</html>

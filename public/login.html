@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign In · 7 Seasons</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --navy: #1C2B3A; --slate: #2D3F50; --gold: #C4963A;
+      --cream: #FAF8F4; --warm-gray: #8C8178; --text: #2A2A2A; --border: #E0D9D0;
+    }
+    body {
+      font-family: "Inter", sans-serif; background: var(--cream); color: var(--text);
+      min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1.5rem;
+    }
+    .card {
+      background: white; border-radius: 16px; padding: 2.5rem;
+      width: 100%; max-width: 420px; box-shadow: 0 4px 24px rgba(0,0,0,0.07);
+    }
+    .logo {
+      font-family: "Cormorant Garamond", serif; font-size: 1.4rem;
+      font-weight: 600; color: var(--navy); margin-bottom: 0.25rem;
+    }
+    .logo span { color: var(--gold); }
+    .subtitle { font-size: 0.85rem; color: var(--warm-gray); margin-bottom: 2rem; }
+    h2 { font-family: "Cormorant Garamond", serif; font-size: 1.75rem; color: var(--navy); margin-bottom: 1.75rem; }
+    label {
+      display: block; font-size: 0.78rem; font-weight: 500;
+      letter-spacing: 0.08em; text-transform: uppercase; color: var(--warm-gray); margin-bottom: 0.4rem;
+    }
+    input {
+      width: 100%; padding: 0.85rem 1rem; border: 1.5px solid var(--border);
+      border-radius: 8px; font-family: "Inter", sans-serif; font-size: 1rem;
+      color: var(--text); background: var(--cream); margin-bottom: 1.25rem;
+      outline: none; transition: border-color 0.2s;
+    }
+    input:focus { border-color: var(--navy); background: white; }
+    .btn {
+      width: 100%; background: var(--navy); color: white; border: none;
+      padding: 1rem; border-radius: 8px; font-family: "Inter", sans-serif;
+      font-size: 0.95rem; font-weight: 500; cursor: pointer; transition: background 0.2s; margin-top: 0.25rem;
+    }
+    .btn:hover { background: var(--slate); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .error {
+      background: #FEF2F2; border: 1px solid #FECACA; border-radius: 8px;
+      padding: 0.75rem 1rem; font-size: 0.85rem; color: #C0392B;
+      margin-bottom: 1.25rem; display: none;
+    }
+    .footer-link {
+      text-align: center; margin-top: 1.5rem; font-size: 0.82rem; color: var(--warm-gray);
+    }
+    .footer-link a { color: var(--navy); text-decoration: none; font-weight: 500; }
+    .footer-link a:hover { text-decoration: underline; }
+    .divider { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">7 <span>Seasons</span></div>
+  <div class="subtitle">A Marriage Operating System</div>
+
+  <h2>Welcome back.</h2>
+
+  <div class="error" id="error-msg"></div>
+
+  <label for="email">Email</label>
+  <input type="email" id="email" placeholder="you@example.com" autocomplete="email">
+
+  <label for="password">Password</label>
+  <input type="password" id="password" placeholder="Your password" autocomplete="current-password">
+
+  <button class="btn" id="login-btn" onclick="login()">Sign In →</button>
+
+  <hr class="divider">
+
+  <div class="footer-link">
+    New to 7 Seasons? <a href="/">Create your account</a>
+  </div>
+</div>
+
+<script>
+  // If already logged in, redirect away
+  fetch("/api/auth/me").then(r => {
+    if (r.ok) window.location.href = "/onboarding.html";
+  }).catch(() => {});
+
+  document.getElementById("password").addEventListener("keydown", function(e) {
+    if (e.key === "Enter") login();
+  });
+
+  async function login() {
+    const email    = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value;
+    const errEl    = document.getElementById("error-msg");
+    const btn      = document.getElementById("login-btn");
+    errEl.style.display = "none";
+
+    if (!email)    { showError("Please enter your email."); return; }
+    if (!password) { showError("Please enter your password."); return; }
+
+    btn.disabled = true;
+    btn.textContent = "Signing in...";
+
+    try {
+      const res  = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if (!res.ok) { showError(data.error); btn.disabled = false; btn.textContent = "Sign In →"; return; }
+
+      localStorage.setItem("7s_individual_id", data.individual_id);
+      localStorage.setItem("7s_couple_id",     data.couple_id);
+      localStorage.setItem("7s_name",          data.name);
+      window.location.href = "/onboarding.html";
+    } catch {
+      showError("Something went wrong. Please try again.");
+      btn.disabled = false;
+      btn.textContent = "Sign In →";
+    }
+  }
+
+  function showError(msg) {
+    const el = document.getElementById("error-msg");
+    el.textContent = msg;
+    el.style.display = "block";
+  }
+</script>
+</body>
+</html>

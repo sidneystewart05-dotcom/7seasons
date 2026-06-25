@@ -1,0 +1,1173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Discovery · 7 Seasons</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy: #1C2B3A;
+      --slate: #2D3F50;
+      --gold: #C4963A;
+      --cream: #FAF8F4;
+      --warm-gray: #8C8178;
+      --text: #2A2A2A;
+      --border: #E0D9D0;
+      --ai-bg: #FFFFFF;
+      --user-bg: #1C2B3A;
+    }
+
+    body {
+      font-family: "Inter", sans-serif;
+      background: var(--cream);
+      color: var(--text);
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Top bar ── */
+    .topbar {
+      background: white;
+      border-bottom: 1px solid var(--border);
+      padding: 0.875rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      flex-shrink: 0;
+    }
+
+    .topbar-logo {
+      font-family: "Cormorant Garamond", serif;
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--navy);
+      white-space: nowrap;
+    }
+    .topbar-logo span { color: var(--gold); }
+
+    .domain-progress {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .domain-label {
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--navy);
+    }
+
+    .domain-name {
+      font-size: 0.72rem;
+      color: var(--warm-gray);
+    }
+
+    .progress-bar {
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+      width: 100%;
+      max-width: 300px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--gold);
+      border-radius: 2px;
+      transition: width 0.5s ease;
+    }
+
+    .topbar-name {
+      font-size: 0.8rem;
+      color: var(--warm-gray);
+      white-space: nowrap;
+    }
+
+    /* ── Chat ── */
+    .chat-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      scroll-behavior: smooth;
+    }
+
+    .bubble-wrap {
+      display: flex;
+      gap: 0.75rem;
+      max-width: 680px;
+      width: 100%;
+    }
+    .bubble-wrap.ai { align-self: flex-start; }
+    .bubble-wrap.user { align-self: flex-end; flex-direction: row-reverse; }
+
+    .bubble-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--navy);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      font-weight: 500;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .bubble-avatar.user-av { background: var(--gold); }
+
+    .bubble {
+      padding: 0.875rem 1.1rem;
+      border-radius: 16px;
+      font-size: 0.95rem;
+      line-height: 1.65;
+      max-width: calc(100% - 48px);
+    }
+
+    .bubble.ai {
+      background: var(--ai-bg);
+      color: var(--text);
+      border-radius: 4px 16px 16px 16px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+
+    .bubble.user {
+      background: var(--user-bg);
+      color: white;
+      border-radius: 16px 4px 16px 16px;
+    }
+
+    .typing-dot {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--warm-gray);
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes pulse {
+      0%, 60%, 100% { opacity: 0.3; transform: scale(0.9); }
+      30% { opacity: 1; transform: scale(1.1); }
+    }
+
+    /* ── Domain complete banner ── */
+    .domain-complete-banner {
+      display: none;
+      background: #F0EDE6;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      text-align: center;
+      max-width: 480px;
+      align-self: center;
+      gap: 0.75rem;
+      flex-direction: column;
+    }
+    .domain-complete-banner.visible { display: flex; }
+
+    .domain-complete-banner .dcb-text {
+      font-size: 0.9rem;
+      color: var(--warm-gray);
+      line-height: 1.5;
+    }
+
+    .btn-advance {
+      background: var(--navy);
+      color: white;
+      border: none;
+      padding: 0.75rem 1.75rem;
+      border-radius: 8px;
+      font-family: "Inter", sans-serif;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-advance:hover { background: var(--slate); }
+
+    /* ── Complete ── */
+    .complete-screen {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 1.5rem;
+      gap: 1.5rem;
+      text-align: center;
+      flex: 1;
+    }
+    .complete-screen.visible { display: flex; }
+
+    .complete-screen h2 {
+      font-family: "Cormorant Garamond", serif;
+      font-size: 2.5rem;
+      color: var(--navy);
+    }
+
+    .complete-screen p {
+      color: var(--warm-gray);
+      font-size: 1rem;
+      line-height: 1.7;
+      max-width: 420px;
+    }
+
+    .invite-box {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem 2rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .invite-label { font-size: 0.75rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--warm-gray); }
+
+    .invite-code {
+      font-size: 2.5rem;
+      letter-spacing: 0.3em;
+      font-weight: 600;
+      color: var(--navy);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .invite-hint { font-size: 0.8rem; color: var(--warm-gray); }
+
+    .btn-go-dashboard {
+      background: var(--gold);
+      color: white;
+      border: none;
+      padding: 1rem 2.5rem;
+      border-radius: 8px;
+      font-family: "Inter", sans-serif;
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .btn-go-dashboard:hover { opacity: 0.9; }
+
+    /* ── Input area ── */
+    .input-area {
+      background: white;
+      border-top: 1px solid var(--border);
+      padding: 1rem 1.5rem;
+      display: flex;
+      gap: 0.75rem;
+      align-items: flex-end;
+      flex-shrink: 0;
+    }
+
+    .input-area textarea {
+      flex: 1;
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      padding: 0.75rem 1rem;
+      font-family: "Inter", sans-serif;
+      font-size: 0.95rem;
+      resize: none;
+      outline: none;
+      background: var(--cream);
+      color: var(--text);
+      min-height: 48px;
+      max-height: 140px;
+      line-height: 1.5;
+      transition: border-color 0.2s;
+    }
+    .input-area textarea:focus { border-color: var(--navy); background: white; }
+    .input-area textarea::placeholder { color: var(--warm-gray); }
+
+    .btn-send {
+      background: var(--navy);
+      border: none;
+      color: white;
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.2s;
+    }
+    .btn-send:hover { background: var(--slate); }
+    .btn-send:disabled { opacity: 0.4; cursor: default; }
+
+    .btn-send svg { width: 18px; height: 18px; }
+
+    .ready-hint {
+      display: none;
+      font-size: 0.75rem;
+      color: var(--warm-gray);
+      text-align: center;
+      padding: 0 1.5rem;
+      padding-bottom: 0.5rem;
+    }
+    .ready-hint.visible { display: block; }
+    .ready-hint button {
+      background: none;
+      border: none;
+      color: var(--gold);
+      cursor: pointer;
+      font-family: "Inter", sans-serif;
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-decoration: underline;
+    }
+
+    /* ── Voice controls ── */
+    .btn-mic {
+      width: 44px; height: 44px; border-radius: 50%;
+      border: 1.5px solid var(--border); background: white;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; flex-shrink: 0; transition: all 0.2s;
+      color: var(--warm-gray);
+    }
+    .btn-mic:hover { border-color: var(--navy); color: var(--navy); }
+    .btn-mic.listening { background: #C0392B; border-color: #C0392B; color: white; animation: mic-pulse 1s ease-in-out infinite; }
+    .btn-mic:disabled { opacity: 0.4; cursor: default; }
+    @keyframes mic-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+
+    .voice-toggle {
+      background: none; border: none; cursor: pointer;
+      font-size: 1.15rem; padding: 0.25rem 0.4rem; line-height: 1;
+      transition: opacity 0.2s; border-radius: 6px;
+    }
+    .voice-toggle:hover { background: #F0EDE6; }
+    .voice-toggle.muted { opacity: 0.35; }
+
+    .btn-repeat {
+      background: none; border: 1.5px solid var(--border); border-radius: 8px;
+      padding: 0.3rem 0.75rem; font-family: "Inter", sans-serif;
+      font-size: 0.78rem; color: var(--warm-gray); cursor: pointer;
+      transition: all 0.2s; white-space: nowrap; display: none;
+    }
+    .btn-repeat:hover { border-color: var(--navy); color: var(--navy); }
+
+    .bubble.ai strong { font-weight: 600; color: var(--navy); }
+
+    /* ── Structured response layout ── */
+    .bubble-content-wrap { display: flex; flex-direction: column; gap: 0.5rem; max-width: calc(100% - 48px); }
+
+    .msg-ack { margin-bottom: 0.25rem; }
+    .msg-question { margin-top: 0.35rem; padding-top: 0.5rem; border-top: 1px solid var(--border); }
+
+    .insight-card { }
+    .insight-toggle {
+      background: none; border: 1px solid #E8DFC8; border-radius: 20px;
+      padding: 0.3rem 0.9rem; font-family: "Inter", sans-serif;
+      font-size: 0.72rem; color: #A8956A; cursor: pointer;
+      transition: all 0.2s; letter-spacing: 0.03em;
+    }
+    .insight-toggle:hover { background: var(--gold-pale); border-color: var(--gold); color: var(--gold); }
+
+    .insight-body {
+      background: #FEFCF7; border: 1px solid #EDE5D0; border-radius: 10px;
+      padding: 0.9rem 1.1rem; margin-top: 0.5rem;
+      font-size: 0.86rem; line-height: 1.7; color: #6B5F4A;
+    }
+
+    .btn-deeper {
+      margin-top: 0.75rem; background: none; border: 1.5px solid var(--gold);
+      color: var(--gold); border-radius: 8px; padding: 0.4rem 1rem;
+      font-family: "Inter", sans-serif; font-size: 0.78rem; font-weight: 500;
+      cursor: pointer; transition: all 0.2s; width: 100%; text-align: left;
+    }
+    .btn-deeper:hover { background: var(--gold); color: white; }
+    .btn-deeper:disabled { opacity: 0.5; cursor: default; }
+
+    .deeper-analysis {
+      margin-top: 0.75rem; font-size: 0.85rem; line-height: 1.75;
+      color: var(--text); border-top: 1px solid #EDE5D0; padding-top: 0.75rem;
+    }
+
+    .listening-label {
+      font-size: 0.72rem; color: #C0392B; font-weight: 500;
+      text-align: center; padding: 0.25rem 0; display: none; letter-spacing: 0.05em;
+    }
+    .listening-label.visible { display: block; }
+
+    /* ── Timer + Pick up later ── */
+    .session-timer {
+      font-size: 0.82rem; font-weight: 500; color: var(--warm-gray);
+      font-variant-numeric: tabular-nums; letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+
+    .btn-pickup {
+      background: none; border: 1.5px solid var(--border); border-radius: 8px;
+      padding: 0.35rem 0.85rem; font-family: "Inter", sans-serif;
+      font-size: 0.78rem; font-weight: 500; color: var(--warm-gray);
+      cursor: pointer; transition: all 0.2s; white-space: nowrap;
+    }
+    .btn-pickup:hover { border-color: var(--navy); color: var(--navy); }
+
+    /* ── Save screen ── */
+    .save-screen {
+      display: none; position: fixed; inset: 0; background: var(--cream);
+      z-index: 50; flex-direction: column; align-items: center;
+      justify-content: center; padding: 2rem;
+    }
+    .save-screen.visible { display: flex; }
+
+    .save-content { text-align: center; max-width: 440px; }
+    .save-icon { font-size: 2rem; color: var(--gold); margin-bottom: 1.5rem; }
+    .save-content h2 {
+      font-family: "Cormorant Garamond", serif; font-size: 2.25rem;
+      color: var(--navy); margin-bottom: 0.75rem;
+    }
+    .save-content p { color: var(--warm-gray); line-height: 1.7; margin-bottom: 1.75rem; font-size: 0.95rem; }
+
+    .save-progress {
+      background: white; border: 1px solid var(--border); border-radius: 10px;
+      padding: 0.85rem 1.25rem; font-size: 0.85rem; color: var(--navy);
+      font-weight: 500; margin-bottom: 2rem;
+    }
+
+    .save-actions { display: flex; flex-direction: column; gap: 0.75rem; align-items: center; }
+    .save-actions a {
+      background: var(--navy); color: white; text-decoration: none;
+      padding: 0.9rem 2.5rem; border-radius: 8px; font-family: "Inter", sans-serif;
+      font-size: 0.95rem; font-weight: 500; transition: background 0.2s;
+    }
+    .save-actions a:hover { background: var(--slate); }
+    .save-actions button {
+      background: none; border: none; color: var(--warm-gray); cursor: pointer;
+      font-family: "Inter", sans-serif; font-size: 0.88rem;
+    }
+    .save-actions button:hover { color: var(--navy); }
+  </style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="topbar">
+  <div class="topbar-logo">7 <span>Seasons</span></div>
+  <div class="domain-progress">
+    <div class="domain-label">
+      <span id="domain-num">1</span> of 10 · <span id="domain-name-label">Childhood &amp; Attachment</span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:10%"></div></div>
+  </div>
+  <div class="topbar-name" id="topbar-name"></div>
+  <div class="session-timer" id="session-timer">0:00</div>
+  <button class="btn-repeat" id="repeat-btn" onclick="repeatLast()" title="Repeat last response">↩ Repeat</button>
+  <button class="btn-pickup" onclick="saveAndExit()">Pick up later</button>
+  <button class="voice-toggle" id="voice-toggle" onclick="toggleVoice()" title="Toggle Seven's voice">🔊</button>
+  <button onclick="logout()" style="background:none;border:none;font-family:'Inter',sans-serif;font-size:0.75rem;color:var(--warm-gray);cursor:pointer;">Sign out</button>
+</div>
+
+<!-- Save screen -->
+<div class="save-screen" id="save-screen">
+  <div class="save-content">
+    <div class="save-icon">✦</div>
+    <h2>Your session is saved.</h2>
+    <p>Come back anytime — your conversation with Seven will be right here waiting for you.</p>
+    <div class="save-progress">
+      Topic <span id="save-topic-num">1</span> of 10 · <span id="save-topic-name">Childhood &amp; Attachment</span>
+    </div>
+    <div class="save-actions">
+      <a href="/dashboard.html">Go to Dashboard</a>
+      <button onclick="resumeConversation()">Continue now →</button>
+    </div>
+  </div>
+</div>
+
+<!-- Chat area -->
+<div class="chat-area" id="chat-area">
+  <!-- messages injected here -->
+</div>
+
+<!-- "Ready to move on" hint -->
+<div class="ready-hint" id="ready-hint">
+  Seven has finished exploring this topic. &nbsp;
+  <button onclick="advanceDomain()">Move to the next topic →</button>
+  &nbsp;·&nbsp;
+  <button onclick="saveAndExit()">Save &amp; close session</button>
+</div>
+
+<!-- Input -->
+<div class="listening-label" id="listening-label">Listening...</div>
+<div class="input-area" id="input-area">
+  <textarea id="msg-input" placeholder="Tap the mic or type your response..." rows="1"></textarea>
+  <button class="btn-mic" id="mic-btn" onclick="toggleMic()" title="Tap to speak">
+    <svg fill="currentColor" viewBox="0 0 24 24" width="18" height="18">
+      <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/>
+    </svg>
+  </button>
+  <button class="btn-send" id="send-btn" onclick="sendMessage()">
+    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+    </svg>
+  </button>
+</div>
+
+<!-- Complete screen (shown after all 10 domains) -->
+<div class="complete-screen" id="complete-screen">
+  <div style="font-size:2.5rem;">✦</div>
+  <h2>Your discovery is complete.</h2>
+  <p id="complete-text">You've shared something meaningful. Now invite your partner to do the same — when you're both done, your Marriage Trajectory Report will be ready.</p>
+  <div class="invite-box" id="invite-box">
+    <div class="invite-label">Partner Invite Code</div>
+    <div class="invite-code" id="invite-code-display">——</div>
+    <div class="invite-hint">Share this with your partner</div>
+  </div>
+  <button class="btn-go-dashboard" onclick="window.location.href='/dashboard.html'">Go to Dashboard</button>
+</div>
+
+<script>
+  const DOMAINS = [
+    "Childhood & Attachment",
+    "Faith & Spiritual Life",
+    "Family Vision",
+    "Conflict & Repair",
+    "Communication",
+    "Money & Stewardship",
+    "Calling & Ambition",
+    "Intimacy & Affection",
+    "Expectations of Marriage",
+    "Growth Mindset"
+  ];
+
+  let individualId = localStorage.getItem("7s_individual_id");
+  let myName       = localStorage.getItem("7s_name");
+  let currentDomain = 0;
+  let isStreaming = false;
+  let domainReadyToAdvance = false;
+  let lastAIText = "";
+  let lastUserMessage = "";
+
+  function repeatLast() { if (lastAIText) speak(lastAIText); }
+
+  async function checkAuth() {
+    try {
+      const res = await fetch("/api/auth/me");
+      if (!res.ok) { window.location.href = "/login.html"; return false; }
+      const user = await res.json();
+      individualId = user.individual_id;
+      myName       = user.name;
+      localStorage.setItem("7s_individual_id", user.individual_id);
+      localStorage.setItem("7s_couple_id",     user.couple_id);
+      localStorage.setItem("7s_name",          user.name);
+      document.getElementById("topbar-name").textContent = user.name;
+      return true;
+    } catch { window.location.href = "/login.html"; return false; }
+  }
+
+  async function logout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    localStorage.clear();
+    window.location.href = "/login.html";
+  }
+
+  if (!individualId) {
+    window.location.href = "/";
+  }
+
+  document.getElementById("topbar-name").textContent = myName || "";
+
+  async function init() {
+    setupSpeechRecognition();
+    setupVoices();
+    if (!await checkAuth()) return;
+    try {
+      const res = await fetch("/api/me/" + individualId);
+      const me = await res.json();
+      if (me.onboarding_complete) {
+        showComplete(me);
+        return;
+      }
+      currentDomain = me.current_domain || 0;
+      updateProgress();
+      startDomain();
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  function updateProgress() {
+    document.getElementById("domain-num").textContent = currentDomain + 1;
+    document.getElementById("domain-name-label").textContent = DOMAINS[currentDomain];
+    document.getElementById("progress-fill").style.width = ((currentDomain + 1) / DOMAINS.length * 100) + "%";
+  }
+
+  async function startDomain() {
+    domainReadyToAdvance = false;
+    document.getElementById("ready-hint").classList.remove("visible");
+    startTimer();
+
+    // Try to restore an existing conversation before starting fresh
+    try {
+      const res = await fetch(`/api/conversation/${individualId}/${currentDomain}`);
+      const data = await res.json();
+      if (data.messages && data.messages.length > 0) {
+        data.messages.forEach(m => addBubble(m.role === "user" ? "user" : "ai", m.content));
+        scrollToBottom();
+        // Check if the last AI message already signalled completion
+        const aiMessages = data.messages.filter(m => m.role === "assistant");
+        if (aiMessages.length > 0) {
+          const lastAI = aiMessages[aiMessages.length - 1].content.toLowerCase();
+          const completionPhrases = ["move on to the next topic", "whenever you're ready, you can move on", "covered a lot of meaningful ground"];
+          if (completionPhrases.some(p => lastAI.includes(p))) {
+            domainReadyToAdvance = true;
+            document.getElementById("ready-hint").classList.add("visible");
+          }
+        }
+        setInputEnabled(true);
+        return;
+      }
+    } catch {}
+
+    // No existing conversation — send the start trigger
+    sendMessage(null);
+  }
+
+  function scrollToBottom() {
+    const area = document.getElementById("chat-area");
+    area.scrollTop = area.scrollHeight;
+  }
+
+  function escapeHTML(t) {
+    return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  function formatAIMessage(text) {
+    return escapeHTML(text).replace(/([^!?\n]+\?)/g, "<strong>$1</strong>");
+  }
+
+  function parseAIResponse(text) {
+    const aMatch = text.match(/\[A\]([\s\S]*?)(?=\[B\]|\[C\]|$)/);
+    const bMatch = text.match(/\[B\]([\s\S]*?)(?=\[A\]|\[C\]|$)/);
+    const cMatch = text.match(/\[C\]([\s\S]*?)(?=\[A\]|\[B\]|$)/);
+    return {
+      ack:     aMatch ? aMatch[1].trim() : "",
+      insight: bMatch ? bMatch[1].trim() : "",
+      question: cMatch ? cMatch[1].trim() : ""
+    };
+  }
+
+  function addBubble(role, text) {
+    const area = document.getElementById("chat-area");
+    const wrap = document.createElement("div");
+    wrap.className = "bubble-wrap " + role;
+
+    const avatar = document.createElement("div");
+    avatar.className = "bubble-avatar" + (role === "user" ? " user-av" : "");
+    avatar.textContent = role === "user" ? (myName || "You").charAt(0).toUpperCase() : "7";
+    wrap.appendChild(avatar);
+
+    if (role === "ai" && text && (text.includes("[A]") || text.includes("[B]") || text.includes("[C]"))) {
+      // Structured response
+      const contentWrap = buildStructuredBubble(text);
+      wrap.appendChild(contentWrap);
+    } else {
+      const bubble = document.createElement("div");
+      bubble.className = "bubble " + role;
+      if (role === "ai" && text) {
+        bubble.innerHTML = formatAIMessage(text);
+      } else {
+        bubble.textContent = text || "";
+      }
+      wrap.appendChild(bubble);
+    }
+
+    area.appendChild(wrap);
+    scrollToBottom();
+    // Return the main bubble element for streaming updates
+    return wrap.querySelector(".bubble");
+  }
+
+  function buildStructuredBubble(text) {
+    const parts = parseAIResponse(text);
+    const contentWrap = document.createElement("div");
+    contentWrap.className = "bubble-content-wrap";
+
+    // Main bubble: A + C
+    const bubble = document.createElement("div");
+    bubble.className = "bubble ai";
+    let mainHTML = "";
+    if (parts.ack) mainHTML += `<div class="msg-ack">${escapeHTML(parts.ack)}</div>`;
+    if (parts.question) mainHTML += `<div class="msg-question">${formatAIMessage(parts.question)}</div>`;
+    bubble.innerHTML = mainHTML || escapeHTML(text);
+    contentWrap.appendChild(bubble);
+
+    // Insight card: B
+    if (parts.insight) {
+      const insightId = "ins-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6);
+      const card = document.createElement("div");
+      card.className = "insight-card";
+      card.innerHTML = `
+        <button class="insight-toggle" onclick="toggleInsight('${insightId}')">✦ Seven noticed something</button>
+        <div class="insight-body" id="${insightId}" style="display:none">
+          <div>${escapeHTML(parts.insight)}</div>
+          <button class="btn-deeper" onclick="deepenInsight(this, '${insightId}')">What might this mean for me? →</button>
+          <div class="deeper-analysis" id="deep-${insightId}" style="display:none"></div>
+        </div>`;
+      contentWrap.appendChild(card);
+    }
+
+    return contentWrap;
+  }
+
+  function toggleInsight(id) {
+    const body = document.getElementById(id);
+    if (body) body.style.display = body.style.display === "none" ? "block" : "none";
+  }
+
+  async function deepenInsight(btn, insightId) {
+    const insightBody = document.getElementById(insightId);
+    const insightText = insightBody ? insightBody.querySelector("div").textContent : "";
+    const deepDiv = document.getElementById("deep-" + insightId);
+    if (!deepDiv) return;
+
+    btn.disabled = true;
+    btn.textContent = "Thinking...";
+
+    try {
+      const res = await fetch("/api/insight/deepen", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          individual_id: individualId,
+          insight: insightText,
+          user_response: lastUserMessage,
+          domain_index: currentDomain
+        })
+      });
+      const data = await res.json();
+      if (data.analysis) {
+        deepDiv.innerHTML = escapeHTML(data.analysis).replace(/\n\n/g, "<br><br>");
+        deepDiv.style.display = "block";
+        btn.style.display = "none";
+      } else {
+        btn.textContent = "What might this mean for me? →";
+        btn.disabled = false;
+      }
+    } catch {
+      btn.textContent = "What might this mean for me? →";
+      btn.disabled = false;
+    }
+  }
+
+  function addTypingIndicator() {
+    const area = document.getElementById("chat-area");
+    const wrap = document.createElement("div");
+    wrap.className = "bubble-wrap ai";
+    wrap.id = "typing-wrap";
+
+    const avatar = document.createElement("div");
+    avatar.className = "bubble-avatar";
+    avatar.textContent = "7";
+
+    const bubble = document.createElement("div");
+    bubble.className = "bubble ai";
+    bubble.innerHTML = '<span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>';
+    bubble.style.padding = "1rem 1.25rem";
+
+    wrap.appendChild(avatar);
+    wrap.appendChild(bubble);
+    area.appendChild(wrap);
+    scrollToBottom();
+    return wrap;
+  }
+
+  function removeTypingIndicator() {
+    const el = document.getElementById("typing-wrap");
+    if (el) el.remove();
+  }
+
+  function setInputEnabled(enabled) {
+    document.getElementById("msg-input").disabled = !enabled;
+    document.getElementById("send-btn").disabled = !enabled;
+  }
+
+  async function sendMessage(userMessage) {
+    if (isStreaming) return;
+
+    const input = document.getElementById("msg-input");
+
+    if (userMessage === undefined) {
+      userMessage = input.value.trim();
+      if (!userMessage) return;
+      input.value = "";
+      input.style.height = "auto";
+      addBubble("user", userMessage);
+    }
+    if (userMessage && userMessage !== "__START__") lastUserMessage = userMessage;
+
+    isStreaming = true;
+    micShouldBeActive = false;
+    setInputEnabled(false);
+    speechSynthesis.cancel();
+    if (recognition) try { recognition.abort(); } catch {}
+
+    const typing = addTypingIndicator();
+
+    try {
+      const body = { individual_id: individualId, domain_index: currentDomain };
+      if (userMessage) body.message = userMessage;
+      // For domain start (no user message), send a special trigger
+      if (!userMessage) body.message = "__START__";
+
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+
+      if (!res.ok) {
+        removeTypingIndicator();
+        let errMsg = "Something went wrong. Please try again.";
+        try { const d = await res.json(); if (d.error) errMsg = "Server error: " + d.error; } catch {}
+        addBubble("ai", errMsg);
+        isStreaming = false;
+        setInputEnabled(true);
+        return;
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let fullText = "";
+      let aiBubble = null;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop();
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const payload = line.slice(6);
+          if (payload === "[DONE]") break;
+
+          try {
+            const parsed = JSON.parse(payload);
+            if (parsed.error) {
+              removeTypingIndicator();
+              addBubble("ai", "Error: " + parsed.error);
+              break;
+            }
+            if (parsed.text) {
+              if (!aiBubble) {
+                removeTypingIndicator();
+                aiBubble = addBubble("ai", "");
+              }
+              fullText += parsed.text;
+              // Show clean text during streaming (strip section markers)
+              if (aiBubble) aiBubble.textContent = fullText.replace(/\[A\]\n?|\[B\]\n?|\[C\]\n?/g, "").trim();
+              scrollToBottom();
+            }
+          } catch (e) {}
+        }
+      }
+
+      // Check if AI indicated domain completion
+      const completionPhrases = [
+        "move on to the next topic",
+        "whenever you're ready, you can move on",
+        "ready, you can move on",
+        "move on to the next",
+        "next topic",
+        "covered a lot of meaningful ground"
+      ];
+      const lower = fullText.toLowerCase();
+      const signalledComplete = completionPhrases.some(p => lower.includes(p));
+
+      if (signalledComplete) {
+        domainReadyToAdvance = true;
+        document.getElementById("ready-hint").classList.add("visible");
+      }
+
+      // Restructure streaming bubble into A/B/C layout
+      if (aiBubble && fullText.includes("[A]")) {
+        const wrap = aiBubble.closest(".bubble-wrap");
+        if (wrap) {
+          // Replace single bubble with structured content
+          aiBubble.remove();
+          const structured = buildStructuredBubble(fullText);
+          wrap.appendChild(structured);
+        }
+      } else if (aiBubble) {
+        aiBubble.innerHTML = formatAIMessage(fullText);
+      }
+
+      // Build speak text from A + C only (never B)
+      const parts = parseAIResponse(fullText);
+      const speakText = fullText.includes("[A]")
+        ? [parts.ack, parts.question].filter(Boolean).join(" ")
+        : fullText;
+
+      lastAIText = speakText;
+      document.getElementById("repeat-btn").style.display = "inline-block";
+
+      speak(speakText);
+
+    } catch (e) {
+      removeTypingIndicator();
+      addBubble("ai", "Connection error. Please check your connection and try again.");
+    }
+
+    isStreaming = false;
+    setInputEnabled(true);
+    document.getElementById("msg-input").focus();
+  }
+
+  async function advanceDomain() {
+    if (isStreaming) return;
+
+    setInputEnabled(false);
+    document.getElementById("ready-hint").classList.remove("visible");
+
+    try {
+      const res = await fetch("/api/domain/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ individual_id: individualId, domain_index: currentDomain })
+      });
+      const data = await res.json();
+
+      if (data.onboarding_complete) {
+        const meRes = await fetch("/api/me/" + individualId);
+        const me = await meRes.json();
+        showComplete(me);
+        return;
+      }
+
+      // Add a subtle divider
+      const area = document.getElementById("chat-area");
+      const divider = document.createElement("div");
+      divider.style.cssText = "text-align:center; font-size:0.75rem; color:#8C8178; padding:0.5rem 0; letter-spacing:0.1em; text-transform:uppercase;";
+      divider.textContent = "· · ·";
+      area.appendChild(divider);
+
+      currentDomain = data.next_domain;
+      updateProgress();
+      setInputEnabled(true);
+      startDomain();
+    } catch (e) {
+      console.error(e);
+      setInputEnabled(true);
+    }
+  }
+
+  function showComplete(me) {
+    document.getElementById("chat-area").style.display = "none";
+    document.getElementById("input-area").style.display = "none";
+    document.getElementById("ready-hint").style.display = "none";
+    document.getElementById("complete-screen").classList.add("visible");
+
+    if (me.invite_code) {
+      document.getElementById("invite-code-display").textContent = me.invite_code;
+    }
+    if (me.partner?.onboarding_complete) {
+      document.getElementById("complete-text").textContent = "Both of you have completed your discovery. Your Marriage Trajectory Report is ready to view.";
+      document.getElementById("invite-box").style.display = "none";
+    }
+  }
+
+  // Auto-resize textarea
+  const textarea = document.getElementById("msg-input");
+  textarea.addEventListener("input", function() {
+    this.style.height = "auto";
+    this.style.height = Math.min(this.scrollHeight, 140) + "px";
+  });
+
+  textarea.addEventListener("keydown", function(e) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+
+  // ── Session Timer ────────────────────────────────────────────────────────────
+  let timerSeconds = 0;
+  let timerInterval = null;
+
+  function startTimer() {
+    timerSeconds = 0;
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      timerSeconds++;
+      const m = Math.floor(timerSeconds / 60);
+      const s = timerSeconds % 60;
+      document.getElementById("session-timer").textContent =
+        m + ":" + String(s).padStart(2, "0");
+    }, 1000);
+  }
+
+  function stopTimer() {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+
+  // ── Save & Resume ─────────────────────────────────────────────────────────────
+  function saveAndExit() {
+    stopTimer();
+    micShouldBeActive = false;
+    if (recognition) try { recognition.abort(); } catch {}
+    speechSynthesis.cancel();
+    document.getElementById("save-topic-num").textContent = currentDomain + 1;
+    document.getElementById("save-topic-name").textContent =
+      document.getElementById("domain-name-label").textContent;
+    document.getElementById("save-screen").classList.add("visible");
+  }
+
+  function resumeConversation() {
+    document.getElementById("save-screen").classList.remove("visible");
+    startTimer();
+  }
+
+  // ── Speech Recognition (mic input) ──────────────────────────────────────────
+  let recognition = null;
+  let micActive = false;
+  let micShouldBeActive = false;
+
+  function setupSpeechRecognition() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      document.getElementById("mic-btn").style.display = "none";
+      return;
+    }
+    recognition = new SR();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+
+    recognition.onstart = () => {
+      micActive = true;
+      document.getElementById("mic-btn").classList.add("listening");
+      document.getElementById("listening-label").classList.add("visible");
+    };
+
+    recognition.onresult = (e) => {
+      const transcript = Array.from(e.results).map(r => r[0].transcript).join("");
+      const ta = document.getElementById("msg-input");
+      ta.value = transcript;
+      ta.style.height = "auto";
+      ta.style.height = Math.min(ta.scrollHeight, 140) + "px";
+    };
+
+    recognition.onend = () => {
+      micActive = false;
+      // If the user hasn't stopped it and we're not streaming, restart automatically
+      if (micShouldBeActive && !isStreaming) {
+        try { recognition.start(); } catch {}
+        return;
+      }
+      document.getElementById("mic-btn").classList.remove("listening");
+      document.getElementById("listening-label").classList.remove("visible");
+      const text = document.getElementById("msg-input").value.trim();
+      if (text && !isStreaming) sendMessage();
+    };
+
+    recognition.onerror = (e) => {
+      if (e.error === "aborted") return;
+      if (e.error === "no-speech" && micShouldBeActive && !isStreaming) {
+        // Restart on no-speech so long pauses don't kill it
+        try { recognition.start(); } catch {}
+        return;
+      }
+      micActive = false;
+      micShouldBeActive = false;
+      document.getElementById("mic-btn").classList.remove("listening");
+      document.getElementById("listening-label").classList.remove("visible");
+    };
+  }
+
+  function toggleMic() {
+    if (!recognition || isStreaming) return;
+    if (micShouldBeActive) {
+      micShouldBeActive = false;
+      recognition.stop();
+    } else {
+      micShouldBeActive = true;
+      speechSynthesis.cancel();
+      try { recognition.start(); } catch {}
+    }
+  }
+
+  // ── Text-to-Speech (Seven's voice) ──────────────────────────────────────────
+  let voiceEnabled = true;
+  let selectedVoice = null;
+
+  function setupVoices() {
+    function pickVoice() {
+      const voices = speechSynthesis.getVoices();
+      if (!voices.length) return;
+      const preferred = [
+        "Microsoft Aria Online (Natural) - English (United States)",
+        "Microsoft Jenny Online (Natural) - English (United States)",
+        "Microsoft Aria - English (United States)",
+        "Microsoft Zira - English (United States)",
+        "Samantha",
+        "Google US English"
+      ];
+      for (const name of preferred) {
+        const v = voices.find(v => v.name === name);
+        if (v) { selectedVoice = v; return; }
+      }
+      selectedVoice = voices.find(v => v.lang.startsWith("en-US")) || voices.find(v => v.lang.startsWith("en")) || voices[0];
+    }
+    pickVoice();
+    speechSynthesis.onvoiceschanged = pickVoice;
+  }
+
+  function stripMarkdown(text) {
+    return text
+      .replace(/\*\*(.*?)\*\*/g, "$1")
+      .replace(/\*(.*?)\*/g, "$1")
+      .replace(/__(.*?)__/g, "$1")
+      .replace(/_(.*?)_/g, "$1")
+      .replace(/#{1,6}\s/g, "")
+      .replace(/`(.*?)`/g, "$1")
+      .replace(/\[(.*?)\]\(.*?\)/g, "$1")
+      .replace(/^[-*+]\s/gm, "")
+      .replace(/^\d+\.\s/gm, "")
+      .trim();
+  }
+
+  function speak(text) {
+    if (!voiceEnabled || !text) return;
+    speechSynthesis.cancel();
+    const clean = stripMarkdown(text);
+    const utt = new SpeechSynthesisUtterance(clean);
+    if (selectedVoice) utt.voice = selectedVoice;
+    utt.rate = 1.01;
+    utt.pitch = 1.0;
+    utt.volume = 1.0;
+    speechSynthesis.speak(utt);
+  }
+
+  function toggleVoice() {
+    voiceEnabled = !voiceEnabled;
+    speechSynthesis.cancel();
+    const btn = document.getElementById("voice-toggle");
+    btn.textContent = voiceEnabled ? "🔊" : "🔇";
+    btn.classList.toggle("muted", !voiceEnabled);
+  }
+
+  init();
+</script>
+
+</body>
+</html>

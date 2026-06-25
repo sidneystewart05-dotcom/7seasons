@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard · 7 Seasons</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --navy: #1C2B3A; --slate: #2D3F50; --gold: #C4963A;
+      --cream: #FAF8F4; --warm-gray: #8C8178; --text: #2A2A2A; --border: #E0D9D0;
+    }
+    body { font-family: "Inter", sans-serif; background: var(--cream); color: var(--text); min-height: 100vh; }
+
+    .topbar {
+      background: white; border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between;
+    }
+    .logo { font-family: "Cormorant Garamond", serif; font-size: 1.25rem; font-weight: 600; color: var(--navy); }
+    .logo span { color: var(--gold); }
+    .topbar-nav { display: flex; gap: 1.5rem; align-items: center; }
+    .topbar-nav a { font-size: 0.85rem; color: var(--warm-gray); text-decoration: none; font-weight: 500; }
+    .topbar-nav a:hover { color: var(--navy); }
+    .nav-name { font-size: 0.85rem; color: var(--navy); font-weight: 500; }
+
+    .container { max-width: 900px; margin: 0 auto; padding: 2.5rem 1.5rem; }
+
+    .page-header { margin-bottom: 2.5rem; }
+    .page-header h1 { font-family: "Cormorant Garamond", serif; font-size: 2.25rem; color: var(--navy); margin-bottom: 0.5rem; }
+    .page-header p { color: var(--warm-gray); font-size: 0.95rem; line-height: 1.6; }
+
+    /* Status cards */
+    .status-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2rem; }
+    @media (max-width: 560px) { .status-grid { grid-template-columns: 1fr; } }
+
+    .status-card {
+      background: white; border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem;
+    }
+    .status-card .sc-label { font-size: 0.72rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--warm-gray); margin-bottom: 0.5rem; }
+    .status-card .sc-name { font-size: 1.25rem; font-weight: 500; color: var(--navy); margin-bottom: 0.75rem; }
+    .status-card .sc-progress { font-size: 0.85rem; color: var(--warm-gray); }
+
+    .progress-bar { height: 4px; background: var(--border); border-radius: 2px; margin-top: 0.5rem; overflow: hidden; }
+    .progress-fill { height: 100%; background: var(--gold); border-radius: 2px; transition: width 0.5s; }
+
+    .badge {
+      display: inline-block; font-size: 0.7rem; font-weight: 500; padding: 0.25rem 0.75rem;
+      border-radius: 100px; letter-spacing: 0.05em; text-transform: uppercase;
+    }
+    .badge-complete { background: #EAF4EE; color: #2D7A45; }
+    .badge-progress { background: #FDF4E3; color: #A07020; }
+    .badge-waiting { background: #F0EDE6; color: var(--warm-gray); }
+
+    /* Invite box */
+    .invite-row {
+      background: white; border: 1px solid var(--border); border-radius: 12px;
+      padding: 1.25rem 1.5rem; display: flex; align-items: center; gap: 1.5rem;
+      margin-bottom: 2rem; flex-wrap: wrap;
+    }
+    .invite-row .ir-label { font-size: 0.75rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--warm-gray); margin-bottom: 0.25rem; }
+    .invite-row .ir-code { font-size: 1.75rem; font-weight: 600; letter-spacing: 0.25em; color: var(--navy); }
+    .invite-row .ir-hint { font-size: 0.8rem; color: var(--warm-gray); }
+    .btn-copy { background: none; border: 1.5px solid var(--border); border-radius: 8px; padding: 0.5rem 1rem; font-family: "Inter", sans-serif; font-size: 0.8rem; cursor: pointer; color: var(--navy); }
+    .btn-copy:hover { border-color: var(--navy); }
+    .btn-email { background: var(--navy); border: none; border-radius: 8px; padding: 0.5rem 1rem; font-family: "Inter", sans-serif; font-size: 0.8rem; cursor: pointer; color: white; }
+    .btn-email:hover { background: var(--slate); }
+    .invite-buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+    /* Action cards */
+    .section-title { font-size: 0.75rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--warm-gray); margin-bottom: 1rem; }
+
+    .action-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+
+    .action-card {
+      background: white; border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem;
+      cursor: pointer; transition: box-shadow 0.2s, border-color 0.2s; text-decoration: none; display: block;
+    }
+    .action-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); border-color: #C8BEB5; }
+    .action-card.disabled { opacity: 0.5; cursor: default; pointer-events: none; }
+
+    .action-card .ac-icon { font-size: 1.5rem; margin-bottom: 0.75rem; }
+    .action-card .ac-title { font-size: 1rem; font-weight: 500; color: var(--navy); margin-bottom: 0.35rem; }
+    .action-card .ac-desc { font-size: 0.82rem; color: var(--warm-gray); line-height: 1.5; }
+
+    .loading { text-align: center; padding: 4rem; color: var(--warm-gray); font-size: 0.9rem; }
+
+    /* Email modal */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(28,43,58,0.45); z-index: 100; align-items: center; justify-content: center; padding: 1.5rem; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: white; border-radius: 16px; padding: 2rem; width: 100%; max-width: 480px; }
+    .modal h3 { font-family: "Cormorant Garamond", serif; font-size: 1.5rem; color: var(--navy); margin-bottom: 0.5rem; }
+    .modal p { font-size: 0.82rem; color: var(--warm-gray); margin-bottom: 1rem; }
+    .email-body { background: #F7F5F2; border: 1px solid var(--border); border-radius: 8px; padding: 1rem; font-size: 0.85rem; line-height: 1.7; color: var(--text); white-space: pre-wrap; margin-bottom: 1.25rem; }
+    .modal-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+    .btn-gmail { background: #EA4335; color: white; border: none; border-radius: 8px; padding: 0.65rem 1.25rem; font-family: "Inter", sans-serif; font-size: 0.85rem; font-weight: 500; cursor: pointer; text-decoration: none; display: inline-block; }
+    .btn-gmail:hover { opacity: 0.9; }
+    .btn-copy-msg { background: var(--navy); color: white; border: none; border-radius: 8px; padding: 0.65rem 1.25rem; font-family: "Inter", sans-serif; font-size: 0.85rem; font-weight: 500; cursor: pointer; }
+    .btn-copy-msg:hover { background: var(--slate); }
+    .btn-close-modal { background: none; border: none; color: var(--warm-gray); font-family: "Inter", sans-serif; font-size: 0.85rem; cursor: pointer; padding: 0.65rem 0; }
+    .btn-close-modal:hover { color: var(--navy); }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">7 <span>Seasons</span></div>
+  <div class="topbar-nav">
+    <a href="/onboarding.html">My Discovery</a>
+    <span class="nav-name" id="nav-name"></span>
+    <button onclick="logout()" style="background:none;border:none;font-family:'Inter',sans-serif;font-size:0.82rem;color:var(--warm-gray);cursor:pointer;">Sign out</button>
+  </div>
+</div>
+
+<div class="container" id="main-content">
+  <div class="loading">Loading your dashboard...</div>
+</div>
+
+<!-- Email invite modal -->
+<div class="modal-overlay" id="email-modal">
+  <div class="modal">
+    <h3>Invite Your Partner</h3>
+    <p>Copy this message or open directly in Gmail.</p>
+    <div class="email-body" id="email-body-text"></div>
+    <div class="modal-actions">
+      <a class="btn-gmail" id="gmail-link" href="#" target="_blank">Open in Gmail</a>
+      <button class="btn-copy-msg" onclick="copyEmailMessage()">Copy Message</button>
+      <button class="btn-close-modal" onclick="closeEmailModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let individualId = localStorage.getItem("7s_individual_id");
+  const myName = localStorage.getItem("7s_name");
+
+  async function checkAuth() {
+    try {
+      const res = await fetch("/api/auth/me");
+      if (!res.ok) { window.location.href = "/login.html"; return false; }
+      const user = await res.json();
+      individualId = user.individual_id;
+      localStorage.setItem("7s_individual_id", user.individual_id);
+      localStorage.setItem("7s_couple_id",     user.couple_id);
+      localStorage.setItem("7s_name",          user.name);
+      document.getElementById("nav-name").textContent = user.name;
+      return true;
+    } catch { window.location.href = "/login.html"; return false; }
+  }
+
+  async function logout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    localStorage.clear();
+    window.location.href = "/login.html";
+  }
+
+  async function load() {
+    if (!await checkAuth()) return;
+    const res = await fetch("/api/me/" + individualId);
+    const me = await res.json();
+    render(me);
+  }
+
+  function render(me) {
+    const partner = me.partner;
+    const myDone = me.onboarding_complete;
+    const partnerDone = partner?.onboarding_complete;
+    const bothDone = me.both_complete;
+
+    const el = document.getElementById("main-content");
+    el.innerHTML = `
+      <div class="page-header">
+        <h1>Welcome back, ${me.name}.</h1>
+        <p>Your marriage journey dashboard.</p>
+      </div>
+
+      <!-- Couple status -->
+      <div class="status-grid">
+        <div class="status-card">
+          <div class="sc-label">Your Discovery</div>
+          <div class="sc-name">${me.name}</div>
+          ${myDone
+            ? `<span class="badge badge-complete">Complete</span>`
+            : `<span class="badge badge-progress">In Progress · ${me.current_domain} of 10</span>
+               <div class="progress-bar"><div class="progress-fill" style="width:${me.current_domain / 10 * 100}%"></div></div>`}
+        </div>
+        <div class="status-card">
+          <div class="sc-label">Partner's Discovery</div>
+          <div class="sc-name">${partner ? partner.name : "Not yet joined"}</div>
+          ${partner
+            ? (partnerDone
+              ? `<span class="badge badge-complete">Complete</span>`
+              : `<span class="badge badge-progress">In Progress</span>`)
+            : `<span class="badge badge-waiting">Waiting for partner</span>`}
+        </div>
+      </div>
+
+      ${!partner ? `
+      <div class="invite-row">
+        <div style="flex:1">
+          <div class="ir-label">Invite Your Partner</div>
+          <div class="ir-code">${me.invite_code}</div>
+          <div class="ir-hint">They'll enter this code at ${window.location.origin}</div>
+        </div>
+        <div class="invite-buttons">
+          <button class="btn-copy" onclick="copyCode('${me.invite_code}')">Copy Code</button>
+          <button class="btn-email" onclick="emailInvite('${me.invite_code}')">Email Invite</button>
+        </div>
+      </div>` : ""}
+
+      <!-- Actions -->
+      <div class="section-title">What would you like to do?</div>
+      <div class="action-grid">
+
+        ${!myDone ? `
+        <a href="/onboarding.html" class="action-card">
+          <div class="ac-icon">💬</div>
+          <div class="ac-title">Continue Your Discovery</div>
+          <div class="ac-desc">Pick up where you left off — ${10 - me.current_domain} topics remaining.</div>
+        </a>` : ""}
+
+        <a href="/report.html" class="action-card ${!bothDone ? "disabled" : ""}">
+          <div class="ac-icon">✦</div>
+          <div class="ac-title">View Trajectory Report</div>
+          <div class="ac-desc">${bothDone ? "Your Marriage Trajectory Report is ready." : "Available when both of you complete discovery."}</div>
+        </a>
+
+        <div class="action-card disabled">
+          <div class="ac-icon">🔄</div>
+          <div class="ac-title">Marriage Check-In</div>
+          <div class="ac-desc">Coming soon — quarterly relationship review.</div>
+        </div>
+
+        <a href="/argue.html" class="action-card ${!partner ? 'disabled' : ''}">
+          <div class="ac-icon">⚡</div>
+          <div class="ac-title">We're Arguing</div>
+          <div class="ac-desc">${!partner ? 'Available once your partner joins.' : 'Get clarity during conflict — a SNAP-guided process.'}</div>
+        </a>
+
+        <div class="action-card disabled">
+          <div class="ac-icon">🧭</div>
+          <div class="ac-title">Big Decision Advisor</div>
+          <div class="ac-desc">Coming soon — navigate major decisions together.</div>
+        </div>
+
+        <div class="action-card disabled">
+          <div class="ac-icon">📅</div>
+          <div class="ac-title">Marriage Timeline</div>
+          <div class="ac-desc">Coming soon — track your journey over the years.</div>
+        </div>
+
+      </div>
+
+      ${bothDone ? `
+      <div style="margin-top:1rem;">
+        <div class="section-title">For Your Counselor or Pastor</div>
+        <div class="action-grid">
+          <div class="action-card" onclick="copyCounselorLink('${me.couple_id}')">
+            <div class="ac-icon">🔗</div>
+            <div class="ac-title">Share Counselor Report</div>
+            <div class="ac-desc">Copy a link to your full counselor report — includes all dimensions and raw data.</div>
+          </div>
+        </div>
+      </div>` : ""}
+    `;
+  }
+
+  function copyCode(code) {
+    navigator.clipboard.writeText(code).then(() => {
+      const btn = document.querySelector(".btn-copy");
+      if (btn) { btn.textContent = "Copied!"; setTimeout(() => btn.textContent = "Copy Code", 1500); }
+    });
+  }
+
+  function emailInvite(code) {
+    const url = window.location.origin;
+    const message =
+      "I'd like to invite you to start your own discovery on 7 Seasons — an AI-guided conversation that helps us understand each other more deeply.\n\n" +
+      "Here's how to join:\n\n" +
+      "1. Go to: " + url + "\n" +
+      "2. Click \"Join Your Partner\"\n" +
+      "3. Enter this invite code: " + code + "\n\n" +
+      "Looking forward to this journey together.";
+
+    document.getElementById("email-body-text").textContent = message;
+
+    const subject = encodeURIComponent("Join me on 7 Seasons");
+    const gmailUrl = "https://mail.google.com/mail/?view=cm&fs=1&su=" + subject + "&body=" + encodeURIComponent(message);
+    document.getElementById("gmail-link").href = gmailUrl;
+
+    document.getElementById("email-modal").classList.add("open");
+  }
+
+  function copyEmailMessage() {
+    const text = document.getElementById("email-body-text").textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.querySelector(".btn-copy-msg");
+      btn.textContent = "Copied!";
+      setTimeout(() => btn.textContent = "Copy Message", 1500);
+    });
+  }
+
+  function closeEmailModal() {
+    document.getElementById("email-modal").classList.remove("open");
+  }
+
+  document.getElementById("email-modal").addEventListener("click", function(e) {
+    if (e.target === this) closeEmailModal();
+  });
+
+  function copyCounselorLink(coupleId) {
+    const url = window.location.origin + "/counselor.html?couple=" + coupleId;
+    navigator.clipboard.writeText(url).then(() => alert("Counselor link copied to clipboard."));
+  }
+
+  load();
+</script>
+
+</body>
+</html>

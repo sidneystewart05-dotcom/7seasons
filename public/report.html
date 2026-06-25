@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trajectory Report · 7 Seasons</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --navy: #1C2B3A; --slate: #2D3F50; --gold: #C4963A; --gold-pale: #F9F3E8;
+      --cream: #FAF8F4; --warm-gray: #8C8178; --text: #2A2A2A; --border: #E0D9D0;
+    }
+    body { font-family: "Inter", sans-serif; background: var(--cream); color: var(--text); min-height: 100vh; }
+
+    .topbar {
+      background: white; border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between;
+    }
+    .logo { font-family: "Cormorant Garamond", serif; font-size: 1.25rem; font-weight: 600; color: var(--navy); }
+    .logo span { color: var(--gold); }
+    .topbar a { font-size: 0.85rem; color: var(--warm-gray); text-decoration: none; }
+    .topbar a:hover { color: var(--navy); }
+
+    .container { max-width: 760px; margin: 0 auto; padding: 3rem 1.5rem 5rem; }
+
+    /* ── Generating screen ── */
+    .generating {
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+      gap: 1.5rem; text-align: center; padding: 5rem 1.5rem;
+    }
+    .generating.visible { display: flex; }
+    .generating h2 { font-family: "Cormorant Garamond", serif; font-size: 2rem; color: var(--navy); }
+    .generating p { color: var(--warm-gray); max-width: 400px; line-height: 1.7; }
+    .generating-status { font-size: 0.85rem; color: var(--gold); font-weight: 500; min-height: 1.2em; }
+    .spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--gold); border-radius: 50%; animation: spin 0.9s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Report ── */
+    .report { display: none; }
+    .report.visible { display: block; }
+
+    .report-header { text-align: center; padding: 2rem 0 3rem; border-bottom: 1px solid var(--border); margin-bottom: 3rem; }
+    .report-header .eyebrow { font-size: 0.72rem; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gold); margin-bottom: 1rem; }
+    .report-header h1 { font-family: "Cormorant Garamond", serif; font-size: clamp(2rem, 5vw, 3rem); color: var(--navy); margin-bottom: 1.25rem; }
+    .report-header .intro { font-size: 1rem; color: var(--warm-gray); line-height: 1.8; max-width: 580px; margin: 0 auto; }
+
+    /* Marriage overview */
+    .overview-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2.5rem; }
+    @media (max-width: 560px) { .overview-grid { grid-template-columns: 1fr; } }
+
+    .overview-card { background: white; border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; }
+    .overview-card h3 { font-size: 0.72rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--warm-gray); margin-bottom: 1rem; }
+    .overview-card ul { list-style: none; display: flex; flex-direction: column; gap: 0.6rem; }
+    .overview-card li { font-size: 0.9rem; color: var(--text); line-height: 1.5; display: flex; gap: 0.5rem; }
+    .overview-card li::before { content: "·"; color: var(--gold); font-weight: 700; flex-shrink: 0; }
+
+    .dynamic-summary {
+      background: var(--gold-pale); border-radius: 12px; padding: 1.75rem;
+      margin-bottom: 3rem; font-size: 0.95rem; line-height: 1.8; color: var(--text);
+      border-left: 3px solid var(--gold);
+    }
+
+    /* Season sections */
+    .seasons-header {
+      text-align: center; margin-bottom: 2.5rem;
+    }
+    .seasons-header h2 { font-family: "Cormorant Garamond", serif; font-size: 2rem; color: var(--navy); }
+    .seasons-header p { color: var(--warm-gray); font-size: 0.9rem; margin-top: 0.5rem; }
+
+    .season-card {
+      background: white; border: 1px solid var(--border); border-radius: 16px;
+      margin-bottom: 1.5rem; overflow: hidden;
+    }
+
+    .season-header {
+      display: flex; align-items: center; gap: 1.25rem;
+      padding: 1.5rem; cursor: pointer; user-select: none;
+    }
+    .season-header:hover { background: #FAFAF8; }
+
+    .season-num {
+      width: 44px; height: 44px; border-radius: 50%; background: var(--navy);
+      color: white; display: flex; align-items: center; justify-content: center;
+      font-family: "Cormorant Garamond", serif; font-size: 1.25rem; font-weight: 600; flex-shrink: 0;
+    }
+
+    .season-title-wrap { flex: 1; }
+    .season-num-label { font-size: 0.7rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--warm-gray); margin-bottom: 0.2rem; }
+    .season-name { font-size: 1.05rem; font-weight: 500; color: var(--navy); }
+
+    .season-chevron { color: var(--warm-gray); transition: transform 0.25s; font-size: 1.25rem; }
+    .season-card.open .season-chevron { transform: rotate(90deg); }
+
+    .season-body { display: none; padding: 0 1.5rem 1.75rem; border-top: 1px solid var(--border); }
+    .season-card.open .season-body { display: block; }
+
+    .season-summary { font-size: 0.95rem; line-height: 1.75; color: var(--warm-gray); margin-top: 1.25rem; margin-bottom: 1.5rem; }
+
+    .season-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 560px) { .season-grid { grid-template-columns: 1fr; } }
+
+    .season-section h4 {
+      font-size: 0.7rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--warm-gray); margin-bottom: 0.75rem;
+    }
+
+    .season-list { list-style: none; display: flex; flex-direction: column; gap: 0.6rem; }
+    .season-list li { font-size: 0.88rem; color: var(--text); line-height: 1.55; display: flex; gap: 0.5rem; }
+    .season-list li.strength::before { content: "↑"; color: #2D7A45; font-weight: 700; flex-shrink: 0; }
+    .season-list li.challenge::before { content: "→"; color: var(--gold); font-weight: 700; flex-shrink: 0; }
+    .season-list li.convo::before { content: "💬"; flex-shrink: 0; font-size: 0.75rem; }
+    .season-list li.habit::before { content: "✦"; color: var(--navy); flex-shrink: 0; font-size: 0.7rem; }
+
+    .report-close {
+      text-align: center; padding-top: 3rem; border-top: 1px solid var(--border); margin-top: 3rem;
+      font-family: "Cormorant Garamond", serif; font-size: 1.15rem; color: var(--warm-gray);
+      font-style: italic; line-height: 1.8;
+    }
+
+    .loading { text-align: center; padding: 4rem; color: var(--warm-gray); }
+    .error-msg { text-align: center; padding: 3rem; color: var(--warm-gray); }
+    .error-msg .btn {
+      display: inline-block; margin-top: 1.5rem; background: var(--navy); color: white;
+      border: none; padding: 0.85rem 2rem; border-radius: 8px; font-family: "Inter", sans-serif;
+      font-size: 0.9rem; cursor: pointer;
+    }
+
+    .btn-generate {
+      background: var(--navy); color: white; border: none; padding: 1rem 2.5rem;
+      border-radius: 8px; font-family: "Inter", sans-serif; font-size: 1rem;
+      font-weight: 500; cursor: pointer; transition: opacity 0.2s;
+    }
+    .btn-generate:hover { opacity: 0.85; }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">7 <span>Seasons</span></div>
+  <a href="/dashboard.html">← Dashboard</a>
+</div>
+
+<div class="container">
+  <div id="generating" class="generating">
+    <div class="spinner"></div>
+    <h2>Building your report...</h2>
+    <p>We're analyzing your combined profiles and generating your Marriage Trajectory Report. This takes about a minute.</p>
+    <div class="generating-status" id="gen-status">Starting...</div>
+  </div>
+
+  <div id="report" class="report"></div>
+
+  <div id="status-screen"></div>
+</div>
+
+<script>
+  const individualId = localStorage.getItem("7s_individual_id");
+  const coupleId = localStorage.getItem("7s_couple_id");
+
+  if (!individualId) window.location.href = "/";
+
+  async function init() {
+    // Try to load existing report first
+    try {
+      const res = await fetch("/api/report/" + coupleId);
+      if (res.ok) {
+        const data = await res.json();
+        renderReport(data);
+        return;
+      }
+    } catch (e) {}
+
+    // Check if both spouses are done
+    const meRes = await fetch("/api/me/" + individualId);
+    const me = await meRes.json();
+
+    if (!me.both_complete) {
+      document.getElementById("status-screen").innerHTML = `
+        <div class="error-msg">
+          <p>${!me.onboarding_complete
+            ? "Complete your discovery first before viewing the report."
+            : !me.partner
+            ? "Your partner hasn't joined yet. Share your invite code: <strong>" + me.invite_code + "</strong>"
+            : me.partner.name + " hasn't completed their discovery yet. The report will be ready when you're both done."
+          }</p>
+          <button class="btn" onclick="window.location.href='/dashboard.html'">Back to Dashboard</button>
+        </div>`;
+      return;
+    }
+
+    // Both done — offer to generate
+    document.getElementById("status-screen").innerHTML = `
+      <div style="text-align:center; padding:4rem 1.5rem;">
+        <div style="font-family:'Cormorant Garamond',serif; font-size:2rem; color:var(--navy); margin-bottom:1rem;">
+          You're both ready.
+        </div>
+        <p style="color:var(--warm-gray); margin-bottom:2rem; line-height:1.7;">
+          Generate your personalized Marriage Trajectory Report — a forecast of your journey through all 7 seasons, built specifically for the two of you.
+        </p>
+        <button class="btn-generate" onclick="generateReport()">Generate Our Report</button>
+      </div>`;
+  }
+
+  async function generateReport() {
+    document.getElementById("status-screen").innerHTML = "";
+    document.getElementById("generating").classList.add("visible");
+
+    try {
+      const res = await fetch("/api/couple/generate-report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ couple_id: coupleId })
+      });
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop();
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const data = JSON.parse(line.slice(6));
+            if (data.status && data.status !== "done") {
+              document.getElementById("gen-status").textContent = data.status;
+            }
+            if (data.status === "done") {
+              document.getElementById("generating").classList.remove("visible");
+              const reportRes = await fetch("/api/report/" + coupleId);
+              const reportData = await reportRes.json();
+              renderReport(reportData);
+            }
+            if (data.error) {
+              document.getElementById("generating").classList.remove("visible");
+              document.getElementById("status-screen").innerHTML = `<div class="error-msg"><p>Error generating report: ${data.error}</p><button class="btn" onclick="init()">Try Again</button></div>`;
+            }
+          } catch (e) {}
+        }
+      }
+    } catch (e) {
+      document.getElementById("generating").classList.remove("visible");
+      document.getElementById("status-screen").innerHTML = `<div class="error-msg"><p>Something went wrong. Please try again.</p><button class="btn" onclick="init()">Try Again</button></div>`;
+    }
+  }
+
+  function renderReport(data) {
+    const names = data.spouses?.map(s => s.name).join(" & ") || "Your Marriage";
+    const strengths = data.marriage_strengths || [];
+    const growthAreas = data.marriage_growth_areas || [];
+
+    let seasonsHTML = data.seasons?.map(s => `
+      <div class="season-card" id="season-${s.season}">
+        <div class="season-header" onclick="toggleSeason(${s.season})">
+          <div class="season-num">${s.season}</div>
+          <div class="season-title-wrap">
+            <div class="season-num-label">Season ${s.season}</div>
+            <div class="season-name">${s.name}</div>
+          </div>
+          <div class="season-chevron">›</div>
+        </div>
+        <div class="season-body">
+          <p class="season-summary">${s.season_summary || ""}</p>
+          <div class="season-grid">
+            <div class="season-section">
+              <h4>Strengths in this season</h4>
+              <ul class="season-list">
+                ${(s.strengths || []).map(x => `<li class="strength">${x}</li>`).join("")}
+              </ul>
+            </div>
+            <div class="season-section">
+              <h4>Challenges to prepare for</h4>
+              <ul class="season-list">
+                ${(s.challenges || []).map(x => `<li class="challenge">${x}</li>`).join("")}
+              </ul>
+            </div>
+            <div class="season-section">
+              <h4>Conversations to have</h4>
+              <ul class="season-list">
+                ${(s.conversations_to_have || []).map(x => `<li class="convo">${x}</li>`).join("")}
+              </ul>
+            </div>
+            <div class="season-section">
+              <h4>Habits to build</h4>
+              <ul class="season-list">
+                ${(s.habits_to_build || []).map(x => `<li class="habit">${x}</li>`).join("")}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    `).join("") || "";
+
+    document.getElementById("report").innerHTML = `
+      <div class="report-header">
+        <div class="eyebrow">Marriage Trajectory Report</div>
+        <h1>${names}</h1>
+        <p class="intro">${data.report_intro || ""}</p>
+      </div>
+
+      <div class="overview-grid">
+        <div class="overview-card">
+          <h3>Your Strengths Together</h3>
+          <ul>
+            ${strengths.map(s => `<li><span>${s.title}</span></li>`).join("")}
+          </ul>
+        </div>
+        <div class="overview-card">
+          <h3>Areas to Grow Into</h3>
+          <ul>
+            ${growthAreas.map(g => `<li><span>${g.title}</span></li>`).join("")}
+          </ul>
+        </div>
+      </div>
+
+      ${data.dynamic_summary ? `<div class="dynamic-summary">${data.dynamic_summary}</div>` : ""}
+
+      <div class="seasons-header">
+        <h2>Your Seven Seasons</h2>
+        <p>Select any season to see your personalized forecast</p>
+      </div>
+
+      ${seasonsHTML}
+
+      ${data.closing ? `<div class="report-close">${data.closing}</div>` : ""}
+    `;
+
+    document.getElementById("report").classList.add("visible");
+
+    // Open first season by default
+    if (data.seasons?.length) toggleSeason(1);
+  }
+
+  function toggleSeason(num) {
+    const card = document.getElementById("season-" + num);
+    if (card) card.classList.toggle("open");
+  }
+
+  init();
+</script>
+
+</body>
+</html>
