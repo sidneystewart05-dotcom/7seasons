@@ -304,8 +304,9 @@ app.post("/api/auth/register", async (req, res) => {
     return res.status(500).json({ error: err.message });
   }
 
+  const finalCouple = stmts.getCouple.get(couple_id);
   setAuthCookie(res, { individual_id, couple_id, name: name.trim() });
-  res.json({ individual_id, couple_id, invite_code: invite_code_out, name: name.trim() });
+  res.json({ individual_id, couple_id, invite_code: invite_code_out, name: name.trim(), couple_track: finalCouple?.couple_track || "standard" });
 });
 
 // Login
@@ -452,7 +453,11 @@ app.post("/api/chat", async (req, res) => {
     history.push({ role: "user", content: message.trim() });
   }
 
-  const systemPrompt = buildDiscoveryPrompt(individual.name, domain_index);
+  const couple          = stmts.getCouple.get(individual.couple_id);
+  const discContext     = couple?.couple_track === "premarital" ? "premarital" : "standard";
+  const assistantCount  = history.filter(m => m.role === "assistant").length;
+  const includeSynthesis = assistantCount > 0 && (assistantCount + 1) % 3 === 0;
+  const systemPrompt    = buildDiscoveryPrompt(individual.name, domain_index, discContext, includeSynthesis);
 
   // Set up SSE
   res.setHeader("Content-Type", "text/event-stream");
@@ -1001,6 +1006,24 @@ app.delete("/api/couple/:id/timeline/:entry_id", (req, res) => {
 });
 
 // ─── Premarital Sessions ──────────────────────────────────────────────────────
+
+app.get("/api/premarital/:couple_id/ready", (req, res) => {
+  const couple  = stmts.getCouple.get(req.params.couple_id);
+  if (!couple) return res.status(404).json({ error: "Not found" });
+
+  const members = stmts.getIndividualsByCouple.all(req.params.couple_id);
+  const me      = members.find(m => m.id === req.query.individual_id) || members[0];
+  const partner = members.find(m => m.id !== me?.id);
+
+  res.json({
+    my_discovery_complete:      !!me?.onboarding_complete,
+    partner_joined:             !!partner,
+    partner_name:               partner?.name || null,
+    partner_discovery_complete: !!partner?.onboarding_complete,
+    sessions_unlocked:          !!(me?.onboarding_complete && partner?.onboarding_complete),
+    invite_code:                couple.invite_code
+  });
+});
 
 app.get("/api/premarital/:couple_id/progress", (req, res) => {
   const rows = stmts.getPremaritalSessions.all(req.params.couple_id);

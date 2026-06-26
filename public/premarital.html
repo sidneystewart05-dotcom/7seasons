@@ -129,28 +129,60 @@
   }
 
   async function load() {
-    const data = await fetch("/api/premarital/" + coupleId + "/progress").then(r => r.json());
-    const completedCount = data.completed_count || 0;
+    const readyData = await fetch("/api/premarital/" + coupleId + "/ready?individual_id=" + individualId).then(r => r.json());
+    const sessionData = await fetch("/api/premarital/" + coupleId + "/progress").then(r => r.json());
+    const completedCount = sessionData.completed_count || 0;
+    const sessionsUnlocked = readyData.sessions_unlocked;
 
-    document.getElementById("progress-fill").style.width = (completedCount / 7 * 100) + "%";
-    document.getElementById("progress-label").textContent = completedCount + " of 7 sessions complete";
+    // Show status banner if not ready
+    const list    = document.getElementById("session-list");
+    const progBar = document.getElementById("progress-fill");
+    const progLbl = document.getElementById("progress-label");
 
-    const list = document.getElementById("session-list");
-    list.innerHTML = data.sessions.map((s, i) => {
-      const prevDone = i === 0 || data.sessions[i - 1].completed;
+    if (!readyData.my_discovery_complete) {
+      list.innerHTML = `
+        <div style="background:var(--gold-pale);border:1px solid #E8C97A;border-radius:12px;padding:1.5rem;text-align:center;">
+          <div style="font-size:0.82rem;font-weight:500;text-transform:uppercase;letter-spacing:0.1em;color:var(--gold);margin-bottom:0.5rem;">Before You Begin</div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:1.5rem;color:var(--navy);margin-bottom:0.5rem;">Complete your personal discovery first</div>
+          <p style="color:var(--warm-gray);font-size:0.88rem;line-height:1.65;margin-bottom:1.25rem;">Seven needs to understand who you are individually before you begin the joint sessions.</p>
+          <a href="/onboarding.html" style="background:var(--navy);color:white;text-decoration:none;padding:0.75rem 2rem;border-radius:8px;font-family:'Inter',sans-serif;font-size:0.88rem;font-weight:500;">Begin My Discovery →</a>
+        </div>`;
+      return;
+    }
+
+    if (!readyData.partner_joined) {
+      const inviteBox = `
+        <div style="background:white;border:1px solid var(--border);border-radius:12px;padding:1.25rem 1.5rem;margin-bottom:1.5rem;">
+          <div style="font-size:0.72rem;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:var(--warm-gray);margin-bottom:0.5rem;">Invite Your Partner</div>
+          <div style="font-size:2rem;font-weight:600;letter-spacing:0.25em;color:var(--navy);margin-bottom:0.35rem;">${readyData.invite_code}</div>
+          <div style="font-size:0.8rem;color:var(--warm-gray);">Share this code. Your partner visits this app and clicks "Join Your Partner."</div>
+        </div>`;
+      list.innerHTML = inviteBox + `<div style="text-align:center;padding:1.5rem;color:var(--warm-gray);font-size:0.88rem;">Joint sessions unlock once your partner joins and completes their discovery.</div>`;
+      return;
+    }
+
+    if (!readyData.partner_discovery_complete) {
+      list.innerHTML = `
+        <div style="background:white;border:1px solid var(--border);border-radius:12px;padding:1.5rem;text-align:center;">
+          <div style="font-family:'Cormorant Garamond',serif;font-size:1.5rem;color:var(--navy);margin-bottom:0.5rem;">Waiting for ${readyData.partner_name}</div>
+          <p style="color:var(--warm-gray);font-size:0.88rem;line-height:1.65;">Your partner is working through their personal discovery. Joint sessions unlock when they're done.</p>
+        </div>`;
+      return;
+    }
+
+    // Both ready — show sessions
+    progBar.style.width = (completedCount / 7 * 100) + "%";
+    progLbl.textContent = completedCount + " of 7 sessions complete";
+
+    list.innerHTML = sessionData.sessions.map((s, i) => {
+      const prevDone   = i === 0 || sessionData.sessions[i - 1].completed;
       const isComplete = s.completed;
       const isAvailable = !isComplete && prevDone;
-      const isLocked = !isComplete && !prevDone;
-
-      const cardClass = isComplete ? "complete" : isAvailable ? "available" : "locked";
-      const numClass  = isComplete ? "done" : isAvailable ? "active" : "";
+      const cardClass  = isComplete ? "complete" : isAvailable ? "available" : "locked";
+      const numClass   = isComplete ? "done" : isAvailable ? "active" : "";
       const numDisplay = isComplete ? "✓" : s.num;
-      const status = isComplete ? "Complete" : isAvailable ? "Ready to begin" : "Upcoming";
-
-      const onClick = isAvailable || isComplete
-        ? `onclick="window.location.href='/premarital-session.html?session=${s.num}'"`
-        : "";
-
+      const status     = isComplete ? "Complete" : isAvailable ? "Ready to begin" : "Upcoming";
+      const onClick    = (isAvailable || isComplete) ? `onclick="window.location.href='/premarital-session.html?session=${s.num}'"` : "";
       return `
         <div class="session-card ${cardClass}" ${onClick}>
           <div class="session-num ${numClass}">${numDisplay}</div>

@@ -528,7 +528,7 @@
     <div class="invite-code" id="invite-code-display">——</div>
     <div class="invite-hint">Share this with your partner</div>
   </div>
-  <button class="btn-go-dashboard" onclick="window.location.href='/dashboard.html'">Go to Dashboard</button>
+  <button class="btn-go-dashboard" id="done-btn" onclick="window.location.href='/dashboard.html'">Go to Dashboard</button>
 </div>
 
 <script>
@@ -975,6 +975,12 @@
     document.getElementById("input-area").style.display = "none";
     document.getElementById("ready-hint").style.display = "none";
     document.getElementById("complete-screen").classList.add("visible");
+
+    // Route premarital couples to premarital dashboard
+    if (me.couple_track === "premarital") {
+      document.getElementById("done-btn").textContent = "Go to Your Sessions →";
+      document.getElementById("done-btn").onclick = () => window.location.href = "/premarital.html";
+    }
 
     if (me.invite_code) {
       document.getElementById("invite-code-display").textContent = me.invite_code;
