@@ -531,8 +531,8 @@
 
     if (prefix === "picker")      pickerSeason = num;
     if (prefix === "picker-next") pickerNext   = num;
-    if (prefix === "update")      updateSeason = num;
-    if (prefix === "update-next") updateNext   = num;
+    if (prefix === "update")      { updateSeason = num; previewPosition(); }
+    if (prefix === "update-next") { updateNext   = num; previewPosition(); }
   }
 
   function toggleTransition() {
@@ -544,7 +544,30 @@
   function toggleUpdateTransition() {
     const checked = document.getElementById("update-is-transitioning").checked;
     document.getElementById("update-transition-sub").classList.toggle("visible", checked);
-    if (!checked) updateNext = null;
+    if (!checked) {
+      updateNext = null;
+    } else if (!updateNext && updateSeason) {
+      // Auto-select the next logical season
+      const autoNext = Math.min(updateSeason + 1, 7);
+      selectSeasonOption("update-next", autoNext);
+    }
+    previewPosition();
+  }
+
+  function previewPosition() {
+    if (!updateSeason) return;
+    const isTransitioning = document.getElementById("update-is-transitioning").checked;
+    const progress = (isTransitioning && updateNext)
+      ? document.getElementById("update-progress-slider").value / 100
+      : 0;
+    const totalPos = ((updateSeason - 1) + progress) / 7;
+    document.getElementById("spectrum-dot").style.left = (totalPos * 100) + "%";
+    // Also update the banner color preview
+    const seasons = getSeasons(currentTrack);
+    const current = seasons[updateSeason - 1];
+    const next    = updateNext ? seasons[updateNext - 1] : null;
+    const color   = (next && progress > 0) ? blendColors(current.color, next.color, progress) : current.color;
+    document.getElementById("season-banner").style.background = color;
   }
 
   async function saveSeasonFromPicker() {
@@ -678,6 +701,9 @@
     if (e && e.target !== document.getElementById("update-overlay")) return;
     document.getElementById("update-overlay").classList.remove("open");
   }
+
+  // Live preview as slider moves
+  document.getElementById("update-progress-slider").addEventListener("input", previewPosition);
 
   // ── Boot ───────────────────────────────────────────────────────────────────
   init();
