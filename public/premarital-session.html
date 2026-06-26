@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Session · 7 Seasons</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --navy: #1C2B3A; --slate: #2D3F50; --gold: #C4963A; --gold-pale: #F9F3E8;
+      --cream: #FAF8F4; --warm-gray: #8C8178; --text: #2A2A2A; --border: #E0D9D0;
+      --green: #2D7A45; --green-pale: #EAF4EE; --red: #C0392B;
+    }
+    body { font-family: "Inter", sans-serif; background: var(--cream); color: var(--text); height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+
+    .topbar {
+      background: white; border-bottom: 1px solid var(--border);
+      padding: 0.875rem 1.5rem; display: flex; align-items: center; gap: 1rem; flex-shrink: 0;
+    }
+    .topbar-logo { font-family: "Cormorant Garamond", serif; font-size: 1.1rem; font-weight: 600; color: var(--navy); white-space: nowrap; }
+    .topbar-logo span { color: var(--gold); }
+    .session-label { flex: 1; text-align: center; font-size: 0.82rem; font-weight: 500; color: var(--navy); }
+    .btn-close { background: none; border: 1.5px solid var(--border); border-radius: 8px; padding: 0.3rem 0.75rem; font-family: "Inter", sans-serif; font-size: 0.75rem; color: var(--warm-gray); cursor: pointer; white-space: nowrap; transition: all 0.2s; }
+    .btn-close:hover { border-color: var(--navy); color: var(--navy); }
+
+    /* Chat */
+    .chat-area { flex: 1; overflow-y: auto; padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; scroll-behavior: smooth; }
+
+    .bubble-wrap { display: flex; gap: 0.75rem; max-width: 680px; width: 100%; }
+    .bubble-wrap.ai   { align-self: flex-start; }
+    .bubble-wrap.user { align-self: flex-end; flex-direction: row-reverse; }
+
+    .bubble-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--navy); color: white; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 500; flex-shrink: 0; margin-top: 2px; }
+    .bubble-avatar.user-av { background: var(--gold); }
+
+    .bubble { padding: 0.875rem 1.1rem; border-radius: 16px; font-size: 0.95rem; line-height: 1.65; max-width: calc(100% - 48px); }
+    .bubble.ai   { background: white; color: var(--text); border-radius: 4px 16px 16px 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); white-space: pre-wrap; }
+    .bubble.ai strong { font-weight: 600; color: var(--navy); }
+    .bubble.user { background: var(--navy); color: white; border-radius: 16px 4px 16px 16px; }
+
+    .typing-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--warm-gray); animation: pulse 1.2s ease-in-out infinite; }
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes pulse { 0%, 60%, 100% { opacity: 0.3; transform: scale(0.9); } 30% { opacity: 1; transform: scale(1.1); } }
+
+    /* Complete hint */
+    .complete-hint { display: none; background: var(--green-pale); border-top: 1px solid #C8E6D4; padding: 0.85rem 1.5rem; text-align: center; font-size: 0.85rem; color: var(--green); flex-shrink: 0; }
+    .complete-hint.visible { display: block; }
+    .complete-hint button { background: var(--green); color: white; border: none; border-radius: 8px; padding: 0.45rem 1.25rem; font-family: "Inter", sans-serif; font-size: 0.82rem; font-weight: 500; cursor: pointer; margin-left: 0.75rem; }
+
+    /* Input */
+    .listening-label { font-size: 0.72rem; color: var(--red); font-weight: 500; text-align: center; padding: 0.25rem 0; display: none; }
+    .listening-label.visible { display: block; }
+    .input-area { background: white; border-top: 1px solid var(--border); padding: 1rem 1.5rem; display: flex; gap: 0.75rem; align-items: flex-end; flex-shrink: 0; }
+    .input-area textarea { flex: 1; border: 1.5px solid var(--border); border-radius: 12px; padding: 0.75rem 1rem; font-family: "Inter", sans-serif; font-size: 0.95rem; resize: none; outline: none; background: var(--cream); color: var(--text); min-height: 48px; max-height: 140px; line-height: 1.5; transition: border-color 0.2s; }
+    .input-area textarea:focus { border-color: var(--navy); background: white; }
+    .btn-mic { width: 44px; height: 44px; border-radius: 50%; border: 1.5px solid var(--border); background: white; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; transition: all 0.2s; color: var(--warm-gray); }
+    .btn-mic:hover { border-color: var(--navy); color: var(--navy); }
+    .btn-mic.listening { background: var(--red); border-color: var(--red); color: white; animation: mic-pulse 1s ease-in-out infinite; }
+    @keyframes mic-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+    .btn-send { background: var(--navy); border: none; color: white; width: 44px; height: 44px; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background 0.2s; }
+    .btn-send:hover { background: var(--slate); }
+    .btn-send:disabled, .btn-mic:disabled { opacity: 0.4; cursor: default; }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-logo">7 <span>Seasons</span></div>
+  <div class="session-label" id="session-label">Loading...</div>
+  <button class="btn-close" onclick="closeSession()">Save &amp; close</button>
+</div>
+
+<div class="chat-area" id="chat-area"></div>
+
+<div class="complete-hint" id="complete-hint">
+  Seven has finished this session.
+  <button onclick="completeSession()">Close this session →</button>
+</div>
+
+<div class="listening-label" id="listening-label">Listening...</div>
+<div class="input-area">
+  <textarea id="msg-input" placeholder="Type your response, or use the mic..." rows="1"></textarea>
+  <button class="btn-mic" id="mic-btn" onclick="toggleMic()" title="Tap to speak">
+    <svg fill="currentColor" viewBox="0 0 24 24" width="18" height="18">
+      <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/>
+    </svg>
+  </button>
+  <button class="btn-send" id="send-btn" onclick="sendMessage()">
+    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="18" height="18">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+    </svg>
+  </button>
+</div>
+
+<script>
+  const params     = new URLSearchParams(window.location.search);
+  const sessionNum = parseInt(params.get("session") || "1");
+  let coupleId     = localStorage.getItem("7s_couple_id");
+  let isStreaming  = false;
+  let sessionDone  = false;
+
+  const SESSION_TITLES = [
+    "", "So... What Is Marriage?", "Money: What's the Big Deal?",
+    "Big Decisions: The MOC Board", "Partnership Design: Roles & Responsibilities",
+    "Communication: Arguing Right", "That Which We Do Not Speak Of", "Expectations"
+  ];
+
+  document.getElementById("session-label").textContent = "Session " + sessionNum + " · " + SESSION_TITLES[sessionNum];
+
+  async function checkAuth() {
+    try {
+      const res = await fetch("/api/auth/me");
+      if (!res.ok) { window.location.href = "/login.html"; return false; }
+      const user = await res.json();
+      coupleId = user.couple_id;
+      return true;
+    } catch { window.location.href = "/login.html"; return false; }
+  }
+
+  // ── Chat helpers ──────────────────────────────────────────────────────────
+  function scrollToBottom() { const a = document.getElementById("chat-area"); a.scrollTop = a.scrollHeight; }
+
+  function addBubble(role, text) {
+    const area = document.getElementById("chat-area");
+    const wrap = document.createElement("div");
+    wrap.className = "bubble-wrap " + role;
+    const av = document.createElement("div");
+    av.className = "bubble-avatar" + (role === "user" ? " user-av" : "");
+    av.textContent = role === "user" ? "Us" : "7";
+    const bubble = document.createElement("div");
+    bubble.className = "bubble " + role;
+    if (role === "ai" && text) {
+      bubble.innerHTML = text.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/([^!?\n]+\?)/g,"<strong>$1</strong>");
+    } else {
+      bubble.textContent = text || "";
+    }
+    wrap.appendChild(av);
+    wrap.appendChild(bubble);
+    area.appendChild(wrap);
+    scrollToBottom();
+    return bubble;
+  }
+
+  function addTypingIndicator() {
+    const area = document.getElementById("chat-area");
+    const wrap = document.createElement("div"); wrap.className = "bubble-wrap ai"; wrap.id = "typing-wrap";
+    const av = document.createElement("div"); av.className = "bubble-avatar"; av.textContent = "7";
+    const b = document.createElement("div"); b.className = "bubble ai";
+    b.innerHTML = '<span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>';
+    b.style.padding = "1rem 1.25rem";
+    wrap.appendChild(av); wrap.appendChild(b);
+    area.appendChild(wrap); scrollToBottom();
+  }
+  function removeTypingIndicator() { document.getElementById("typing-wrap")?.remove(); }
+
+  function setInputEnabled(on) {
+    document.getElementById("msg-input").disabled = !on;
+    document.getElementById("send-btn").disabled  = !on;
+    document.getElementById("mic-btn").disabled   = !on;
+  }
+
+  // ── Load / start session ──────────────────────────────────────────────────
+  async function init() {
+    if (!await checkAuth()) return;
+    const data = await fetch("/api/premarital/" + coupleId + "/session/" + sessionNum).then(r => r.json());
+
+    if (data.completed) { sessionDone = true; }
+
+    if (data.messages && data.messages.length > 0) {
+      data.messages.forEach(m => addBubble(m.role === "user" ? "user" : "ai", m.content));
+      scrollToBottom();
+      const lastAI = data.messages.filter(m => m.role === "assistant").pop()?.content || "";
+      if (lastAI.toLowerCase().includes("close out this session")) {
+        document.getElementById("complete-hint").classList.add("visible");
+      }
+      if (data.completed) setInputEnabled(false);
+    } else {
+      await streamMessage("__START__");
+    }
+  }
+
+  // ── Send ──────────────────────────────────────────────────────────────────
+  async function sendMessage() {
+    if (isStreaming || sessionDone) return;
+    const input = document.getElementById("msg-input");
+    const text  = input.value.trim();
+    if (!text) return;
+    input.value = ""; input.style.height = "auto";
+    addBubble("user", text);
+    setInputEnabled(false);
+    await streamMessage(text);
+    setInputEnabled(true);
+  }
+
+  document.getElementById("msg-input").addEventListener("keydown", function(e) {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  });
+  document.getElementById("msg-input").addEventListener("input", function() {
+    this.style.height = "auto";
+    this.style.height = Math.min(this.scrollHeight, 140) + "px";
+  });
+
+  async function streamMessage(userMessage) {
+    isStreaming = true;
+    addTypingIndicator();
+    let fullText = "", aiBubble = null;
+
+    try {
+      const res = await fetch("/api/premarital/message", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ couple_id: coupleId, session_num: sessionNum, message: userMessage })
+      });
+
+      if (!res.ok) { removeTypingIndicator(); addBubble("ai", "Something went wrong. Please try again."); isStreaming = false; return; }
+
+      const reader = res.body.getReader(), decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n"); buffer = lines.pop();
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const payload = line.slice(6).trim();
+          if (payload === "[DONE]") break;
+          try {
+            const data = JSON.parse(payload);
+            if (data.text) {
+              if (!aiBubble) { removeTypingIndicator(); aiBubble = addBubble("ai", ""); }
+              fullText += data.text;
+              aiBubble.textContent = fullText;
+              scrollToBottom();
+            }
+          } catch {}
+        }
+      }
+
+      if (aiBubble) {
+        aiBubble.innerHTML = fullText.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/([^!?\n]+\?)/g,"<strong>$1</strong>");
+      }
+
+      if (fullText.toLowerCase().includes("close out this session")) {
+        document.getElementById("complete-hint").classList.add("visible");
+      }
+    } catch {
+      removeTypingIndicator();
+      addBubble("ai", "Connection error. Please try again.");
+    }
+    isStreaming = false;
+    document.getElementById("msg-input").focus();
+  }
+
+  // ── Complete session ──────────────────────────────────────────────────────
+  async function completeSession() {
+    await fetch("/api/premarital/complete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ couple_id: coupleId, session_num: sessionNum })
+    });
+    window.location.href = "/premarital.html";
+  }
+
+  function closeSession() { window.location.href = "/premarital.html"; }
+
+  // ── Voice ──────────────────────────────────────────────────────────────────
+  let recognition = null, micShouldBeActive = false;
+
+  function setupMic() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { document.getElementById("mic-btn").style.display = "none"; return; }
+    recognition = new SR();
+    recognition.continuous = true; recognition.interimResults = true; recognition.lang = "en-US";
+    recognition.onstart = () => { document.getElementById("mic-btn").classList.add("listening"); document.getElementById("listening-label").classList.add("visible"); };
+    recognition.onresult = (e) => { const t = Array.from(e.results).map(r => r[0].transcript).join(""); const ta = document.getElementById("msg-input"); ta.value = t; ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight,140)+"px"; };
+    recognition.onend = () => {
+      if (micShouldBeActive && !isStreaming) { try { recognition.start(); } catch {} return; }
+      document.getElementById("mic-btn").classList.remove("listening"); document.getElementById("listening-label").classList.remove("visible");
+      const text = document.getElementById("msg-input").value.trim();
+      if (text && !isStreaming) sendMessage();
+    };
+    recognition.onerror = (e) => { if (e.error === "aborted" || (e.error === "no-speech" && micShouldBeActive)) { try { if(micShouldBeActive) recognition.start(); } catch {} return; } micShouldBeActive = false; document.getElementById("mic-btn").classList.remove("listening"); document.getElementById("listening-label").classList.remove("visible"); };
+  }
+
+  function toggleMic() {
+    if (!recognition || isStreaming) return;
+    if (micShouldBeActive) { micShouldBeActive = false; recognition.stop(); }
+    else { micShouldBeActive = true; try { recognition.start(); } catch {} }
+  }
+
+  setupMic();
+  init();
+</script>
+</body>
+</html>

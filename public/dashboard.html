@@ -232,10 +232,23 @@
           <div class="ac-desc">${bothDone ? "Your Marriage Trajectory Report is ready." : "Available when both of you complete discovery."}</div>
         </a>
 
+        <a href="/timeline.html" class="action-card">
+          <div class="ac-icon">📅</div>
+          <div class="ac-title">Our Timeline</div>
+          <div class="ac-desc">A living record of your journey — milestones, moments, and seasons.</div>
+        </a>
+
+        ${me.couple_track === 'premarital' ? `
+        <a href="/premarital.html" class="action-card">
+          <div class="ac-icon">💍</div>
+          <div class="ac-title">Premarital Sessions</div>
+          <div class="ac-desc">Your 7 guided sessions — the foundation conversations before you say "I do."</div>
+        </a>` : ""}
+
         <div class="action-card disabled">
           <div class="ac-icon">🔄</div>
           <div class="ac-title">Marriage Check-In</div>
-          <div class="ac-desc">Coming soon — quarterly relationship review.</div>
+          <div class="ac-desc">Coming soon — monthly relationship review.</div>
         </div>
 
         <a href="/argue.html" class="action-card ${!partner ? 'disabled' : ''}">

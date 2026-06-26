@@ -293,6 +293,7 @@
 
     <div class="cta-group" id="main-ctas">
       <button class="btn-primary" onclick="openModal('create')">Begin Your Journey</button>
+      <button class="btn-secondary" onclick="openModal('engaged')">We're Engaged</button>
       <button class="btn-secondary" onclick="openModal('join')">Join Your Partner</button>
       <a href="/login.html" style="font-size:0.82rem; color:var(--warm-gray); text-decoration:none; text-align:center;">Already have an account? Sign in →</a>
     </div>
@@ -337,6 +338,25 @@
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeModals()">Cancel</button>
       <button class="btn-primary" onclick="joinCouple()">Join</button>
+    </div>
+  </div>
+</div>
+
+<!-- Engaged Modal -->
+<div class="modal-overlay" id="modal-engaged">
+  <div class="modal">
+    <h2>We're Engaged</h2>
+    <p>Start your premarital journey. Your partner will join with an invite code you'll receive.</p>
+    <label for="engaged-name">Your First Name</label>
+    <input type="text" id="engaged-name" placeholder="e.g. Sarah" maxlength="50" autocomplete="off">
+    <label for="engaged-email">Email</label>
+    <input type="email" id="engaged-email" placeholder="you@example.com" autocomplete="email">
+    <label for="engaged-password">Password</label>
+    <input type="password" id="engaged-password" placeholder="At least 6 characters" autocomplete="new-password">
+    <div id="engaged-error" class="error-msg" style="display:none;"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModals()">Cancel</button>
+      <button class="btn-primary" onclick="createEngaged()">Begin →</button>
     </div>
   </div>
 </div>
@@ -456,6 +476,30 @@
   function showError(el, msg) {
     el.textContent = msg;
     el.style.display = "block";
+  }
+
+  async function createEngaged() {
+    const name     = document.getElementById("engaged-name").value.trim();
+    const email    = document.getElementById("engaged-email").value.trim();
+    const password = document.getElementById("engaged-password").value;
+    const err      = document.getElementById("engaged-error");
+    err.style.display = "none";
+    if (!name)     { showError(err, "Please enter your name."); return; }
+    if (!email)    { showError(err, "Please enter your email."); return; }
+    if (!password) { showError(err, "Please enter a password."); return; }
+    try {
+      const res  = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password, couple_track: "premarital" })
+      });
+      const data = await res.json();
+      if (!res.ok) { showError(err, data.error); return; }
+      localStorage.setItem("7s_individual_id", data.individual_id);
+      localStorage.setItem("7s_couple_id",     data.couple_id);
+      localStorage.setItem("7s_name",          data.name);
+      window.location.href = "/premarital.html";
+    } catch { showError(err, "Something went wrong. Please try again."); }
   }
 
   function switchUser() {

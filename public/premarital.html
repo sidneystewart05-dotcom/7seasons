@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Premarital Sessions · 7 Seasons</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --navy: #1C2B3A; --slate: #2D3F50; --gold: #C4963A; --gold-pale: #F9F3E8;
+      --cream: #FAF8F4; --warm-gray: #8C8178; --text: #2A2A2A; --border: #E0D9D0;
+      --green: #2D7A45; --green-pale: #EAF4EE;
+    }
+    body { font-family: "Inter", sans-serif; background: var(--cream); color: var(--text); min-height: 100vh; }
+
+    .topbar { background: white; border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
+    .logo { font-family: "Cormorant Garamond", serif; font-size: 1.25rem; font-weight: 600; color: var(--navy); }
+    .logo span { color: var(--gold); }
+    .topbar-nav { display: flex; gap: 1.25rem; align-items: center; }
+    .topbar-nav a { font-size: 0.85rem; color: var(--warm-gray); text-decoration: none; }
+    .topbar-nav a:hover { color: var(--navy); }
+
+    .container { max-width: 720px; margin: 0 auto; padding: 2.5rem 1.5rem 5rem; }
+
+    .page-header { margin-bottom: 2.5rem; }
+    .eyebrow { font-size: 0.72rem; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gold); margin-bottom: 0.5rem; }
+    h1 { font-family: "Cormorant Garamond", serif; font-size: 2.25rem; color: var(--navy); margin-bottom: 0.5rem; }
+    .page-header p { color: var(--warm-gray); font-size: 0.9rem; line-height: 1.65; }
+
+    /* Progress bar */
+    .progress-wrap { display: flex; align-items: center; gap: 1rem; margin-bottom: 2.5rem; }
+    .progress-bar { flex: 1; height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
+    .progress-fill { height: 100%; background: var(--gold); border-radius: 3px; transition: width 0.5s; }
+    .progress-label { font-size: 0.82rem; color: var(--warm-gray); white-space: nowrap; }
+
+    /* Session cards */
+    .session-list { display: flex; flex-direction: column; gap: 0.75rem; }
+
+    .session-card {
+      background: white; border: 1.5px solid var(--border); border-radius: 14px;
+      padding: 1.25rem 1.5rem; display: flex; align-items: center; gap: 1.25rem;
+      transition: box-shadow 0.2s, border-color 0.2s;
+    }
+    .session-card.available { cursor: pointer; }
+    .session-card.available:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); border-color: #C8BEB5; }
+    .session-card.complete { border-color: #C8E6D4; background: var(--green-pale); }
+    .session-card.locked { opacity: 0.45; }
+
+    .session-num {
+      width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-family: "Cormorant Garamond", serif; font-size: 1.25rem; font-weight: 600;
+      border: 1.5px solid var(--border); color: var(--warm-gray);
+    }
+    .session-num.done { background: var(--green); border-color: var(--green); color: white; font-family: "Inter", sans-serif; font-size: 0.9rem; }
+    .session-num.active { background: var(--gold); border-color: var(--gold); color: white; }
+
+    .session-info { flex: 1; }
+    .session-title { font-size: 1rem; font-weight: 500; color: var(--navy); margin-bottom: 0.2rem; }
+    .session-status { font-size: 0.78rem; color: var(--warm-gray); }
+    .session-card.complete .session-status { color: var(--green); }
+    .session-card.available .session-status { color: var(--gold); }
+
+    .session-arrow { color: var(--gold); font-size: 1.1rem; }
+
+    /* Intro note */
+    .intro-note {
+      background: var(--gold-pale); border: 1px solid #E8C97A; border-radius: 12px;
+      padding: 1.25rem 1.5rem; margin-bottom: 2rem; font-size: 0.88rem;
+      color: #8A6A20; line-height: 1.65;
+    }
+    .intro-note strong { display: block; margin-bottom: 0.25rem; color: var(--navy); }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">7 <span>Seasons</span></div>
+  <div class="topbar-nav">
+    <a href="/dashboard.html">Dashboard</a>
+  </div>
+</div>
+
+<div class="container">
+  <div class="page-header">
+    <div class="eyebrow">Premarital Counseling</div>
+    <h1>Your 7 Sessions</h1>
+    <p>Seven guided conversations — for both of you together — covering the foundations of a lasting marriage.</p>
+  </div>
+
+  <div class="intro-note">
+    <strong>How these sessions work</strong>
+    These are joint sessions — both of you, one device, together in the room. Seven facilitates the conversation. Work through them at your own pace.
+  </div>
+
+  <div class="progress-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+    <div class="progress-label" id="progress-label">0 of 7 sessions complete</div>
+  </div>
+
+  <div class="session-list" id="session-list">
+    <div style="text-align:center;padding:3rem;color:var(--warm-gray);">Loading sessions...</div>
+  </div>
+</div>
+
+<script>
+  const SESSIONS = [
+    { num: 1, title: "So... What Is Marriage?" },
+    { num: 2, title: "Money: What's the Big Deal?" },
+    { num: 3, title: "Big Decisions: The MOC Board" },
+    { num: 4, title: "Partnership Design: Roles & Responsibilities" },
+    { num: 5, title: "Communication: Arguing Right" },
+    { num: 6, title: "That Which We Do Not Speak Of" },
+    { num: 7, title: "Expectations" }
+  ];
+
+  let coupleId = localStorage.getItem("7s_couple_id");
+
+  async function checkAuth() {
+    try {
+      const res = await fetch("/api/auth/me");
+      if (!res.ok) { window.location.href = "/login.html"; return false; }
+      const user = await res.json();
+      coupleId = user.couple_id;
+      return true;
+    } catch { window.location.href = "/login.html"; return false; }
+  }
+
+  async function load() {
+    const data = await fetch("/api/premarital/" + coupleId + "/progress").then(r => r.json());
+    const completedCount = data.completed_count || 0;
+
+    document.getElementById("progress-fill").style.width = (completedCount / 7 * 100) + "%";
+    document.getElementById("progress-label").textContent = completedCount + " of 7 sessions complete";
+
+    const list = document.getElementById("session-list");
+    list.innerHTML = data.sessions.map((s, i) => {
+      const prevDone = i === 0 || data.sessions[i - 1].completed;
+      const isComplete = s.completed;
+      const isAvailable = !isComplete && prevDone;
+      const isLocked = !isComplete && !prevDone;
+
+      const cardClass = isComplete ? "complete" : isAvailable ? "available" : "locked";
+      const numClass  = isComplete ? "done" : isAvailable ? "active" : "";
+      const numDisplay = isComplete ? "✓" : s.num;
+      const status = isComplete ? "Complete" : isAvailable ? "Ready to begin" : "Upcoming";
+
+      const onClick = isAvailable || isComplete
+        ? `onclick="window.location.href='/premarital-session.html?session=${s.num}'"`
+        : "";
+
+      return `
+        <div class="session-card ${cardClass}" ${onClick}>
+          <div class="session-num ${numClass}">${numDisplay}</div>
+          <div class="session-info">
+            <div class="session-title">${s.title}</div>
+            <div class="session-status">${status}</div>
+          </div>
+          ${isAvailable ? '<div class="session-arrow">→</div>' : ""}
+        </div>`;
+    }).join("");
+  }
+
+  checkAuth().then(ok => { if (ok) load(); });
+</script>
+</body>
+</html>

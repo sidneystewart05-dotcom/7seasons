@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Our Timeline · 7 Seasons</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --navy: #1C2B3A; --slate: #2D3F50; --gold: #C4963A; --gold-pale: #F9F3E8;
+      --cream: #FAF8F4; --warm-gray: #8C8178; --text: #2A2A2A; --border: #E0D9D0;
+      --green: #2D7A45; --green-pale: #EAF4EE;
+    }
+    body { font-family: "Inter", sans-serif; background: var(--cream); color: var(--text); min-height: 100vh; }
+
+    .topbar { background: white; border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
+    .logo { font-family: "Cormorant Garamond", serif; font-size: 1.25rem; font-weight: 600; color: var(--navy); }
+    .logo span { color: var(--gold); }
+    .topbar-nav { display: flex; gap: 1.25rem; align-items: center; }
+    .topbar-nav a { font-size: 0.85rem; color: var(--warm-gray); text-decoration: none; }
+    .topbar-nav a:hover { color: var(--navy); }
+
+    .container { max-width: 720px; margin: 0 auto; padding: 2.5rem 1.5rem 6rem; }
+    .page-header { margin-bottom: 2.5rem; }
+    .eyebrow { font-size: 0.72rem; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gold); margin-bottom: 0.5rem; }
+    h1 { font-family: "Cormorant Garamond", serif; font-size: 2.25rem; color: var(--navy); margin-bottom: 0.5rem; }
+    .page-header p { color: var(--warm-gray); font-size: 0.9rem; line-height: 1.65; }
+
+    .add-btn {
+      background: var(--navy); color: white; border: none; padding: 0.75rem 1.5rem;
+      border-radius: 8px; font-family: "Inter", sans-serif; font-size: 0.88rem;
+      font-weight: 500; cursor: pointer; transition: background 0.2s; margin-bottom: 2.5rem;
+    }
+    .add-btn:hover { background: var(--slate); }
+
+    /* Timeline */
+    .timeline { position: relative; }
+    .timeline::before {
+      content: ""; position: absolute; left: 20px; top: 0; bottom: 0;
+      width: 2px; background: var(--border);
+    }
+
+    .timeline-entry { display: flex; gap: 1.25rem; margin-bottom: 1.75rem; position: relative; }
+    .entry-dot {
+      width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem; position: relative; z-index: 1; border: 2px solid white;
+      box-shadow: 0 0 0 2px var(--border);
+    }
+    .entry-dot.life         { background: #EEF4FF; box-shadow: 0 0 0 2px #B8CCF0; }
+    .entry-dot.relationship { background: var(--gold-pale); box-shadow: 0 0 0 2px #E8C97A; }
+    .entry-dot.couple       { background: var(--green-pale); box-shadow: 0 0 0 2px #A8D5B8; }
+
+    .entry-card {
+      background: white; border: 1px solid var(--border); border-radius: 12px;
+      padding: 1.1rem 1.25rem; flex: 1; transition: box-shadow 0.2s;
+    }
+    .entry-card:hover { box-shadow: 0 3px 12px rgba(0,0,0,0.07); }
+    .entry-meta { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem; }
+    .entry-date { font-size: 0.75rem; color: var(--warm-gray); }
+    .entry-type-badge {
+      font-size: 0.65rem; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase;
+      padding: 0.2rem 0.6rem; border-radius: 100px;
+    }
+    .badge-life         { background: #EEF4FF; color: #3A6AB0; }
+    .badge-relationship { background: var(--gold-pale); color: #8A6A20; }
+    .badge-couple       { background: var(--green-pale); color: var(--green); }
+    .entry-title { font-size: 0.95rem; font-weight: 500; color: var(--navy); margin-bottom: 0.25rem; }
+    .entry-desc  { font-size: 0.83rem; color: var(--warm-gray); line-height: 1.55; }
+    .entry-delete {
+      background: none; border: none; color: #DDD; cursor: pointer;
+      font-size: 0.75rem; padding: 0.1rem 0.3rem; border-radius: 4px; transition: color 0.2s;
+    }
+    .entry-delete:hover { color: #C0392B; }
+
+    .empty-state { text-align: center; padding: 3rem 1.5rem; color: var(--warm-gray); }
+    .empty-state p { font-size: 0.9rem; line-height: 1.7; }
+
+    /* Modal */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(28,43,58,0.45); z-index: 100; align-items: center; justify-content: center; padding: 1.5rem; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: white; border-radius: 16px; padding: 2rem; width: 100%; max-width: 440px; }
+    .modal h2 { font-family: "Cormorant Garamond", serif; font-size: 1.6rem; color: var(--navy); margin-bottom: 1.5rem; }
+    label { display: block; font-size: 0.78rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--warm-gray); margin-bottom: 0.4rem; }
+    select, input[type="text"], input[type="date"], textarea {
+      width: 100%; padding: 0.8rem 1rem; border: 1.5px solid var(--border); border-radius: 8px;
+      font-family: "Inter", sans-serif; font-size: 0.92rem; color: var(--text);
+      background: var(--cream); outline: none; transition: border-color 0.2s; margin-bottom: 1.1rem;
+    }
+    select:focus, input:focus, textarea:focus { border-color: var(--navy); background: white; }
+    textarea { resize: vertical; min-height: 80px; }
+    .modal-actions { display: flex; gap: 0.75rem; }
+    .btn-save { flex: 1; background: var(--navy); color: white; border: none; padding: 0.85rem; border-radius: 8px; font-family: "Inter", sans-serif; font-size: 0.92rem; font-weight: 500; cursor: pointer; transition: background 0.2s; }
+    .btn-save:hover { background: var(--slate); }
+    .btn-cancel { background: none; border: none; color: var(--warm-gray); font-family: "Inter", sans-serif; font-size: 0.88rem; cursor: pointer; padding: 0.85rem 1rem; }
+    .btn-cancel:hover { color: var(--navy); }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">7 <span>Seasons</span></div>
+  <div class="topbar-nav">
+    <a href="/dashboard.html">Dashboard</a>
+  </div>
+</div>
+
+<div class="container">
+  <div class="page-header">
+    <div class="eyebrow">Your Story</div>
+    <h1>Our Timeline</h1>
+    <p>A living record of your journey together — the milestones, the moments, and the seasons you've walked through.</p>
+  </div>
+
+  <button class="add-btn" onclick="openModal()">+ Add a Moment</button>
+
+  <div class="timeline" id="timeline">
+    <div class="empty-state" id="empty-state" style="display:none">
+      <p>Your timeline is empty.<br>Add your first moment to get started.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Add Entry Modal -->
+<div class="modal-overlay" id="modal" onclick="handleOverlayClick(event)">
+  <div class="modal">
+    <h2>Add a Moment</h2>
+
+    <label for="entry-type">Type</label>
+    <select id="entry-type">
+      <option value="life">Life Milestone — wedding, birth, move, career, health</option>
+      <option value="relationship">Relationship Milestone — season change, breakthrough, resolution</option>
+      <option value="couple">Our Moment — something we want to remember</option>
+    </select>
+
+    <label for="entry-title">Title</label>
+    <input type="text" id="entry-title" placeholder="e.g. Moved to Detroit" maxlength="100">
+
+    <label for="entry-date">Date</label>
+    <input type="date" id="entry-date">
+
+    <label for="entry-desc">Description (optional)</label>
+    <textarea id="entry-desc" placeholder="Any context or reflection you want to capture..."></textarea>
+
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-save" onclick="saveEntry()">Save →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let coupleId = localStorage.getItem("7s_couple_id");
+
+  async function checkAuth() {
+    try {
+      const res = await fetch("/api/auth/me");
+      if (!res.ok) { window.location.href = "/login.html"; return false; }
+      const user = await res.json();
+      coupleId = user.couple_id;
+      localStorage.setItem("7s_couple_id", user.couple_id);
+      return true;
+    } catch { window.location.href = "/login.html"; return false; }
+  }
+
+  const TYPE_CONFIG = {
+    life:         { icon: "🏠", label: "Life Milestone",         badgeClass: "badge-life",         dotClass: "life" },
+    relationship: { icon: "💛", label: "Relationship Milestone", badgeClass: "badge-relationship", dotClass: "relationship" },
+    couple:       { icon: "✦",  label: "Our Moment",            badgeClass: "badge-couple",       dotClass: "couple" }
+  };
+
+  function formatDate(str) {
+    const d = new Date(str + "T12:00:00");
+    return d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+  }
+
+  async function loadTimeline() {
+    const entries = await fetch("/api/couple/" + coupleId + "/timeline").then(r => r.json());
+    const container = document.getElementById("timeline");
+    const empty     = document.getElementById("empty-state");
+
+    if (!entries.length) { empty.style.display = "block"; return; }
+    empty.style.display = "none";
+
+    container.innerHTML = entries.map(e => {
+      const cfg = TYPE_CONFIG[e.entry_type] || TYPE_CONFIG.life;
+      return `
+        <div class="timeline-entry" id="entry-${e.id}">
+          <div class="entry-dot ${cfg.dotClass}">${cfg.icon}</div>
+          <div class="entry-card">
+            <div class="entry-meta">
+              <span class="entry-date">${formatDate(e.entry_date)}</span>
+              <div style="display:flex;align-items:center;gap:0.5rem;">
+                <span class="entry-type-badge ${cfg.badgeClass}">${cfg.label}</span>
+                <button class="entry-delete" onclick="deleteEntry(${e.id})" title="Remove">✕</button>
+              </div>
+            </div>
+            <div class="entry-title">${escapeHtml(e.title)}</div>
+            ${e.description ? `<div class="entry-desc">${escapeHtml(e.description)}</div>` : ""}
+          </div>
+        </div>`;
+    }).join("");
+  }
+
+  async function saveEntry() {
+    const type  = document.getElementById("entry-type").value;
+    const title = document.getElementById("entry-title").value.trim();
+    const date  = document.getElementById("entry-date").value;
+    const desc  = document.getElementById("entry-desc").value.trim();
+
+    if (!title) { alert("Please enter a title."); return; }
+    if (!date)  { alert("Please select a date."); return; }
+
+    await fetch("/api/couple/" + coupleId + "/timeline", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ entry_type: type, title, description: desc, entry_date: date })
+    });
+
+    closeModal();
+    loadTimeline();
+  }
+
+  async function deleteEntry(id) {
+    if (!confirm("Remove this entry?")) return;
+    await fetch("/api/couple/" + coupleId + "/timeline/" + id, { method: "DELETE" });
+    document.getElementById("entry-" + id)?.remove();
+    if (!document.querySelector(".timeline-entry")) {
+      document.getElementById("empty-state").style.display = "block";
+    }
+  }
+
+  function openModal() {
+    document.getElementById("entry-date").value = new Date().toISOString().slice(0, 10);
+    document.getElementById("entry-title").value = "";
+    document.getElementById("entry-desc").value  = "";
+    document.getElementById("modal").classList.add("open");
+    setTimeout(() => document.getElementById("entry-title").focus(), 50);
+  }
+
+  function closeModal()            { document.getElementById("modal").classList.remove("open"); }
+  function handleOverlayClick(e)  { if (e.target === document.getElementById("modal")) closeModal(); }
+  function escapeHtml(t)           { return t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+  document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
+
+  checkAuth().then(ok => { if (ok) loadTimeline(); });
+</script>
+</body>
+</html>

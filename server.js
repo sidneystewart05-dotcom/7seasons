@@ -20,7 +20,9 @@ const {
   buildSnapPrompt,
   buildSnapExtractionPrompt,
   buildArgumentSynthesisPrompt,
-  buildSeasonInferencePrompt
+  buildSeasonInferencePrompt,
+  PREMARITAL_SESSIONS,
+  buildPremaritalSessionPrompt
 } = require("./prompts");
 
 const app = express();
@@ -111,6 +113,34 @@ db.exec(`
   );
 `);
 
+// Timeline entries table
+db.exec(`
+  CREATE TABLE IF NOT EXISTS timeline_entries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    couple_id TEXT NOT NULL,
+    entry_type TEXT NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT DEFAULT '',
+    entry_date TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (couple_id) REFERENCES couples(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS premarital_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    couple_id TEXT NOT NULL,
+    session_num INTEGER NOT NULL,
+    messages TEXT DEFAULT '[]',
+    completed INTEGER DEFAULT 0,
+    completed_at TEXT,
+    UNIQUE(couple_id, session_num),
+    FOREIGN KEY (couple_id) REFERENCES couples(id)
+  );
+`);
+
+// Safely add premarital track column
+try { db.exec("ALTER TABLE couples ADD COLUMN couple_track TEXT DEFAULT 'standard'"); } catch {}
+
 // Safely add season columns to existing databases
 try { db.exec("ALTER TABLE couples ADD COLUMN season_track TEXT DEFAULT 'standard'"); } catch {}
 try { db.exec("ALTER TABLE couples ADD COLUMN season_current INTEGER"); } catch {}
@@ -163,7 +193,18 @@ const stmts = {
 
   // Season
   getCoupleSeason: db.prepare("SELECT season_track, season_current, season_next, season_progress, season_updated FROM couples WHERE id = ?"),
-  updateCoupleSeason: db.prepare("UPDATE couples SET season_track=?, season_current=?, season_next=?, season_progress=?, season_updated=datetime('now') WHERE id = ?")
+  updateCoupleSeason: db.prepare("UPDATE couples SET season_track=?, season_current=?, season_next=?, season_progress=?, season_updated=datetime('now') WHERE id = ?"),
+
+  // Timeline
+  getTimeline: db.prepare("SELECT * FROM timeline_entries WHERE couple_id = ? ORDER BY entry_date DESC"),
+  addTimelineEntry: db.prepare("INSERT INTO timeline_entries (couple_id, entry_type, title, description, entry_date) VALUES (?, ?, ?, ?, ?)"),
+  deleteTimelineEntry: db.prepare("DELETE FROM timeline_entries WHERE id = ? AND couple_id = ?"),
+
+  // Premarital sessions
+  getPremaritalSession: db.prepare("SELECT * FROM premarital_sessions WHERE couple_id = ? AND session_num = ?"),
+  getPremaritalSessions: db.prepare("SELECT session_num, completed FROM premarital_sessions WHERE couple_id = ?"),
+  upsertPremaritalMessages: db.prepare("INSERT INTO premarital_sessions (couple_id, session_num, messages) VALUES (?, ?, ?) ON CONFLICT(couple_id, session_num) DO UPDATE SET messages = excluded.messages"),
+  completePremaritalSession: db.prepare("UPDATE premarital_sessions SET completed = 1, completed_at = datetime('now') WHERE couple_id = ? AND session_num = ?")
 };
 
 // ─── Anthropic ───────────────────────────────────────────────────────────────
@@ -254,7 +295,8 @@ app.post("/api/auth/register", async (req, res) => {
       }
       if (!code) return res.status(500).json({ error: "Could not generate invite code." });
 
-      db.prepare("INSERT INTO couples (id, invite_code) VALUES (?, ?)").run(couple_id, code);
+      const track = req.body.couple_track || "standard";
+      db.prepare("INSERT INTO couples (id, invite_code, couple_track) VALUES (?, ?, ?)").run(couple_id, code, track);
       db.prepare("INSERT INTO individuals (id, couple_id, role, name, email, password_hash) VALUES (?, ?, ?, ?, ?, ?)").run(individual_id, couple_id, "spouse1", name.trim(), normalizedEmail, password_hash);
       invite_code_out = code;
     }
@@ -366,7 +408,8 @@ app.get("/api/me/:individual_id", (req, res) => {
     domain_summaries: domainSummaries,
     domains_total: DOMAINS.length,
     partner: partner ? { id: partner.id, name: partner.name, onboarding_complete: !!partner.onboarding_complete } : null,
-    both_complete: partner ? (!!individual.onboarding_complete && !!partner.onboarding_complete) : false
+    both_complete: partner ? (!!individual.onboarding_complete && !!partner.onboarding_complete) : false,
+    couple_track: couple.couple_track || "standard"
   });
 });
 
@@ -937,6 +980,91 @@ Keep it warm and human — never clinical. Reference what they actually said. 3�
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// ─── Timeline ────────────────────────────────────────────────────────────────
+
+app.get("/api/couple/:id/timeline", (req, res) => {
+  res.json(stmts.getTimeline.all(req.params.id));
+});
+
+app.post("/api/couple/:id/timeline", (req, res) => {
+  const { entry_type, title, description, entry_date } = req.body;
+  if (!title || !entry_date || !entry_type) return res.status(400).json({ error: "entry_type, title, and entry_date required." });
+  const info = stmts.addTimelineEntry.run(req.params.id, entry_type, title.trim(), description?.trim() || "", entry_date);
+  res.json({ id: info.lastInsertRowid, success: true });
+});
+
+app.delete("/api/couple/:id/timeline/:entry_id", (req, res) => {
+  stmts.deleteTimelineEntry.run(req.params.entry_id, req.params.id);
+  res.json({ success: true });
+});
+
+// ─── Premarital Sessions ──────────────────────────────────────────────────────
+
+app.get("/api/premarital/:couple_id/progress", (req, res) => {
+  const rows = stmts.getPremaritalSessions.all(req.params.couple_id);
+  const completed = {};
+  rows.forEach(r => { completed[r.session_num] = !!r.completed; });
+  const sessions = PREMARITAL_SESSIONS.map(s => ({
+    num: s.num, title: s.title, completed: !!completed[s.num]
+  }));
+  res.json({ sessions, completed_count: rows.filter(r => r.completed).length });
+});
+
+app.get("/api/premarital/:couple_id/session/:num", (req, res) => {
+  const row = stmts.getPremaritalSession.get(req.params.couple_id, parseInt(req.params.num));
+  if (!row) return res.json({ messages: [], completed: false });
+  res.json({ messages: JSON.parse(row.messages || "[]"), completed: !!row.completed });
+});
+
+app.post("/api/premarital/message", async (req, res) => {
+  const { couple_id, session_num, message } = req.body;
+  if (!couple_id || !session_num || !message?.trim()) return res.status(400).json({ error: "couple_id, session_num, message required." });
+
+  const members = stmts.getIndividualsByCouple.all(couple_id);
+  const [p1, p2] = members;
+  const row = stmts.getPremaritalSession.get(couple_id, parseInt(session_num));
+  const history = row ? JSON.parse(row.messages || "[]") : [];
+
+  const isStart = message.trim() === "__START__";
+  const messagesToSend = isStart ? [{ role: "user", content: "Please begin." }] : [...history, { role: "user", content: message.trim() }];
+  if (!isStart) history.push({ role: "user", content: message.trim() });
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+
+  let fullResponse = "";
+  try {
+    const stream = anthropic.messages.stream({
+      model: "claude-sonnet-4-6",
+      max_tokens: 1200,
+      system: buildPremaritalSessionPrompt(p1?.name || "Partner 1", p2?.name || "Partner 2", parseInt(session_num)),
+      messages: messagesToSend
+    });
+
+    for await (const event of stream) {
+      if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+        fullResponse += event.delta.text;
+        res.write(`data: ${JSON.stringify({ text: event.delta.text })}\n\n`);
+      }
+    }
+
+    history.push({ role: "assistant", content: fullResponse });
+    stmts.upsertPremaritalMessages.run(couple_id, parseInt(session_num), JSON.stringify(history));
+    res.write("data: [DONE]\n\n");
+  } catch (err) {
+    res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
+  } finally {
+    res.end();
+  }
+});
+
+app.post("/api/premarital/complete", (req, res) => {
+  const { couple_id, session_num } = req.body;
+  stmts.completePremaritalSession.run(couple_id, parseInt(session_num));
+  res.json({ success: true });
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────
