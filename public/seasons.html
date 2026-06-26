@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your Season · 7 Seasons</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --navy: #1C2B3A; --slate: #2D3F50; --gold: #C4963A; --gold-pale: #F9F3E8;
+      --cream: #FAF8F4; --warm-gray: #8C8178; --text: #2A2A2A; --border: #E0D9D0;
+      --s1: #C4963A; --s2: #2D6A8F; --s3: #4A9A6A;
+      --s4: #D4793A; --s5: #7A5AA0; --s6: #3A9A9A; --s7: #8A3A5A;
+    }
+    body { font-family: "Inter", sans-serif; background: var(--cream); color: var(--text); min-height: 100vh; }
+
+    /* ── Topbar ── */
+    .topbar {
+      background: white; border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between;
+    }
+    .logo { font-family: "Cormorant Garamond", serif; font-size: 1.25rem; font-weight: 600; color: var(--navy); }
+    .logo span { color: var(--gold); }
+    .topbar-nav { display: flex; gap: 1.25rem; align-items: center; }
+    .topbar-nav a { font-size: 0.85rem; color: var(--warm-gray); text-decoration: none; }
+    .topbar-nav a:hover { color: var(--navy); }
+    .topbar-nav button { background: none; border: none; font-family: "Inter", sans-serif; font-size: 0.85rem; color: var(--warm-gray); cursor: pointer; }
+    .topbar-nav button:hover { color: var(--navy); }
+
+    /* ── State panels ── */
+    .state { display: none; }
+    .state.active { display: block; }
+
+    /* ── Centered layout (setup states) ── */
+    .centered { max-width: 560px; margin: 0 auto; padding: 4rem 1.5rem; text-align: center; }
+    .eyebrow { font-size: 0.72rem; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gold); margin-bottom: 0.75rem; }
+    .centered h2 { font-family: "Cormorant Garamond", serif; font-size: 2.25rem; color: var(--navy); margin-bottom: 0.75rem; line-height: 1.2; }
+    .centered p { color: var(--warm-gray); line-height: 1.75; margin-bottom: 2rem; font-size: 0.95rem; }
+
+    /* ── Track cards ── */
+    .track-cards { display: flex; flex-direction: column; gap: 0.75rem; text-align: left; margin-bottom: 1.5rem; }
+    .track-card {
+      background: white; border: 1.5px solid var(--border); border-radius: 12px;
+      padding: 1.25rem 1.5rem; cursor: pointer; transition: all 0.2s;
+    }
+    .track-card:hover { border-color: var(--navy); box-shadow: 0 4px 14px rgba(0,0,0,0.07); }
+    .track-card.selected { border-color: var(--gold); background: var(--gold-pale); }
+    .track-card h4 { font-size: 0.95rem; font-weight: 500; color: var(--navy); margin-bottom: 0.3rem; }
+    .track-card p { font-size: 0.82rem; color: var(--warm-gray); line-height: 1.55; margin: 0; }
+
+    /* ── Buttons ── */
+    .btn-primary {
+      background: var(--navy); color: white; border: none; padding: 0.9rem 2.5rem;
+      border-radius: 8px; font-family: "Inter", sans-serif; font-size: 0.95rem;
+      font-weight: 500; cursor: pointer; transition: background 0.2s;
+    }
+    .btn-primary:hover { background: var(--slate); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-ghost { background: none; border: none; color: var(--warm-gray); font-family: "Inter", sans-serif; font-size: 0.85rem; cursor: pointer; margin-top: 0.75rem; display: block; text-align: center; }
+    .btn-ghost:hover { color: var(--navy); }
+
+    /* ── AI suggestion card ── */
+    .suggestion-card {
+      background: white; border: 1px solid var(--border); border-radius: 16px;
+      padding: 1.75rem; margin-bottom: 1.5rem; text-align: left;
+    }
+    .suggestion-label { font-size: 0.72rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--warm-gray); margin-bottom: 0.5rem; }
+    .suggestion-season { font-family: "Cormorant Garamond", serif; font-size: 1.5rem; color: var(--navy); margin-bottom: 0.5rem; }
+    .suggestion-reason { font-size: 0.85rem; color: var(--warm-gray); line-height: 1.65; margin-bottom: 1rem; }
+    .suggestion-confidence { font-size: 0.75rem; color: var(--warm-gray); font-style: italic; }
+    .confidence-high { color: var(--s3); }
+    .confidence-medium { color: var(--gold); }
+    .confidence-low { color: var(--warm-gray); }
+
+    .suggestion-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+    .btn-confirm { background: var(--navy); color: white; border: none; padding: 0.65rem 1.5rem; border-radius: 8px; font-family: "Inter", sans-serif; font-size: 0.85rem; font-weight: 500; cursor: pointer; transition: background 0.2s; }
+    .btn-confirm:hover { background: var(--slate); }
+    .btn-adjust { background: none; border: 1.5px solid var(--border); color: var(--navy); padding: 0.65rem 1.5rem; border-radius: 8px; font-family: "Inter", sans-serif; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; }
+    .btn-adjust:hover { border-color: var(--navy); }
+
+    /* ── Season selector grid ── */
+    .season-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; text-align: left; margin-bottom: 1.5rem; }
+    @media (max-width: 480px) { .season-grid { grid-template-columns: 1fr; } }
+    .season-option {
+      border: 1.5px solid var(--border); border-radius: 10px;
+      padding: 0.9rem 1rem; cursor: pointer; transition: all 0.2s;
+    }
+    .season-option:hover { box-shadow: 0 3px 10px rgba(0,0,0,0.08); }
+    .season-option.selected { border-width: 2px; }
+    .season-option .s-num { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.2rem; }
+    .season-option .s-name { font-size: 0.88rem; font-weight: 500; color: var(--navy); margin-bottom: 0.2rem; }
+    .season-option .s-desc { font-size: 0.75rem; color: var(--warm-gray); line-height: 1.45; }
+
+    /* ── Transition toggle ── */
+    .transition-toggle { background: white; border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 1rem; }
+    .transition-toggle label { display: flex; align-items: center; gap: 0.75rem; cursor: pointer; font-size: 0.88rem; color: var(--navy); font-weight: 500; }
+    .transition-toggle input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
+    .transition-sub { margin-top: 1rem; display: none; }
+    .transition-sub.visible { display: block; }
+    .transition-sub p { font-size: 0.8rem; color: var(--warm-gray); margin-bottom: 0.75rem; }
+    .progress-slider { width: 100%; }
+    .progress-labels { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--warm-gray); margin-top: 0.25rem; }
+
+    /* ── Main season view ── */
+    .season-banner {
+      padding: 3rem 2rem 2.5rem; text-align: center; position: relative; overflow: hidden;
+      transition: background 0.6s;
+    }
+    .season-banner::after {
+      content: ""; position: absolute; inset: 0;
+      background: linear-gradient(to bottom, transparent 60%, rgba(0,0,0,0.15));
+      pointer-events: none;
+    }
+    .banner-eyebrow { font-size: 0.72rem; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: rgba(255,255,255,0.75); margin-bottom: 0.5rem; }
+    .banner-season-num { font-size: 0.85rem; font-weight: 500; color: rgba(255,255,255,0.8); margin-bottom: 0.3rem; }
+    .banner-season-name { font-family: "Cormorant Garamond", serif; font-size: clamp(2rem, 6vw, 3.25rem); font-weight: 600; color: white; margin-bottom: 0.75rem; line-height: 1.15; }
+    .banner-season-desc { font-size: 0.95rem; color: rgba(255,255,255,0.85); max-width: 520px; margin: 0 auto; line-height: 1.7; }
+
+    /* ── Transition alert banner ── */
+    .transition-alert {
+      display: none; padding: 1.1rem 2rem; text-align: center;
+      font-size: 0.88rem; font-weight: 500; line-height: 1.5;
+    }
+    .transition-alert.visible { display: block; }
+
+    /* ── Spectrum bar ── */
+    .spectrum-wrap { padding: 2rem 2rem 0; max-width: 900px; margin: 0 auto; }
+    .spectrum-label { font-size: 0.72rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--warm-gray); margin-bottom: 0.75rem; }
+
+    .spectrum-bar-wrap { position: relative; margin-bottom: 0.5rem; }
+    .spectrum-bar {
+      height: 10px; border-radius: 5px; position: relative; overflow: visible;
+      background: linear-gradient(to right,
+        var(--s1) 0%, var(--s1) 14.28%,
+        var(--s2) 14.28%, var(--s2) 28.57%,
+        var(--s3) 28.57%, var(--s3) 42.86%,
+        var(--s4) 42.86%, var(--s4) 57.14%,
+        var(--s5) 57.14%, var(--s5) 71.43%,
+        var(--s6) 71.43%, var(--s6) 85.71%,
+        var(--s7) 85.71%, var(--s7) 100%
+      );
+    }
+    .spectrum-indicator {
+      position: absolute; top: 50%; transform: translate(-50%, -50%);
+      width: 22px; height: 22px; border-radius: 50%;
+      background: white; border: 3px solid var(--navy);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.25); transition: left 0.5s ease; cursor: pointer;
+    }
+    .spectrum-indicator::after {
+      content: ""; position: absolute; inset: 3px; border-radius: 50%;
+      background: var(--navy);
+    }
+    .spectrum-season-labels { display: flex; justify-content: space-between; padding: 0 1px; }
+    .spectrum-season-label {
+      font-size: 0.65rem; color: var(--warm-gray); text-align: center;
+      width: 14.28%; cursor: pointer; transition: color 0.2s; line-height: 1.3;
+    }
+    .spectrum-season-label:hover { color: var(--navy); }
+    .spectrum-season-label.active { color: var(--navy); font-weight: 600; }
+
+    /* ── Main content ── */
+    .main-content { max-width: 900px; margin: 0 auto; padding: 2rem 2rem 5rem; }
+
+    .section-title { font-size: 0.72rem; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--warm-gray); margin-bottom: 1.25rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border); }
+
+    .actions-row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 2.5rem; margin-top: 1.5rem; }
+    .btn-action { background: white; border: 1.5px solid var(--border); border-radius: 10px; padding: 0.7rem 1.25rem; font-family: "Inter", sans-serif; font-size: 0.85rem; font-weight: 500; color: var(--navy); cursor: pointer; transition: all 0.2s; text-decoration: none; display: inline-block; }
+    .btn-action:hover { border-color: var(--navy); box-shadow: 0 3px 10px rgba(0,0,0,0.07); }
+    .btn-action.primary { background: var(--navy); color: white; border-color: var(--navy); }
+    .btn-action.primary:hover { background: var(--slate); }
+
+    .insights-card { background: white; border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; }
+    .insights-card p { font-size: 0.9rem; line-height: 1.75; color: var(--text); }
+
+    /* ── Update overlay ── */
+    .update-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(28,43,58,0.5);
+      z-index: 100; align-items: flex-end; justify-content: center; padding: 1rem;
+    }
+    .update-overlay.open { display: flex; }
+    .update-sheet {
+      background: white; border-radius: 20px 20px 0 0; width: 100%; max-width: 640px;
+      max-height: 90vh; overflow-y: auto; padding: 2rem 1.5rem 2.5rem;
+    }
+    @media (min-width: 680px) {
+      .update-overlay { align-items: center; }
+      .update-sheet { border-radius: 16px; }
+    }
+    .update-sheet h3 { font-family: "Cormorant Garamond", serif; font-size: 1.75rem; color: var(--navy); margin-bottom: 0.5rem; }
+    .update-sheet > p { font-size: 0.85rem; color: var(--warm-gray); margin-bottom: 1.5rem; }
+    .sheet-close { position: absolute; top: 1.25rem; right: 1.5rem; background: none; border: none; font-size: 1.25rem; color: var(--warm-gray); cursor: pointer; }
+
+    /* ── Loading state ── */
+    .loading-wrap { text-align: center; padding: 5rem 1.5rem; color: var(--warm-gray); font-size: 0.9rem; }
+    .spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--gold); border-radius: 50%; animation: spin 0.9s linear infinite; margin: 0 auto 1rem; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">7 <span>Seasons</span></div>
+  <div class="topbar-nav">
+    <a href="/dashboard.html">Dashboard</a>
+    <button onclick="logout()">Sign out</button>
+  </div>
+</div>
+
+<!-- Loading -->
+<div id="state-loading" class="state active">
+  <div class="loading-wrap"><div class="spinner"></div>Loading your season...</div>
+</div>
+
+<!-- Setup: Choose track -->
+<div id="state-setup-path" class="state">
+  <div class="centered">
+    <div class="eyebrow">Getting Started</div>
+    <h2>Which family journey<br>are you on?</h2>
+    <p>This helps us personalize your season experience. You can update this at any time.</p>
+
+    <div class="track-cards">
+      <div class="track-card" id="track-standard" onclick="selectTrack('standard')">
+        <h4>We have children or plan to</h4>
+        <p>Your season progression includes the parenting seasons — young children through teenagers — as part of your journey.</p>
+      </div>
+      <div class="track-card" id="track-child_free" onclick="selectTrack('child_free')">
+        <h4>We're child-free by choice</h4>
+        <p>Your seasons are adapted — Building Depth, The Parallel Years, and Mid-Journey — reflecting a different but equally rich path.</p>
+      </div>
+      <div class="track-card" id="track-navigating" onclick="selectTrack('navigating')">
+        <h4>This is something we're still navigating</h4>
+        <p>Whether through infertility, loss, or uncertainty — we'll walk with you carefully. No assumptions will be made.</p>
+      </div>
+    </div>
+
+    <button class="btn-primary" id="track-continue-btn" onclick="confirmTrack()" disabled>Continue →</button>
+  </div>
+</div>
+
+<!-- Setup: Confirm season -->
+<div id="state-setup-season" class="state">
+  <div class="centered">
+    <div class="eyebrow">Your Current Season</div>
+    <h2>Where are you right now?</h2>
+    <p>Based on what we know about you, here's Seven's read on your current season. Confirm it or adjust.</p>
+
+    <div class="suggestion-card" id="suggestion-card" style="display:none">
+      <div class="suggestion-label">Seven's suggestion</div>
+      <div class="suggestion-season" id="suggestion-season-name"></div>
+      <div class="suggestion-reason" id="suggestion-reason"></div>
+      <div class="suggestion-confidence" id="suggestion-confidence"></div>
+      <div class="suggestion-actions" style="margin-top:1rem;">
+        <button class="btn-confirm" onclick="confirmSuggestion()">That's right →</button>
+        <button class="btn-adjust" onclick="showSeasonPicker()">Adjust</button>
+      </div>
+    </div>
+
+    <div id="season-picker" style="display:none">
+      <div class="season-grid" id="season-grid"></div>
+
+      <div class="transition-toggle">
+        <label>
+          <input type="checkbox" id="is-transitioning" onchange="toggleTransition()">
+          We're currently between two seasons
+        </label>
+        <div class="transition-sub" id="transition-sub">
+          <p>Select the season you're moving toward:</p>
+          <div class="season-grid" id="season-next-grid"></div>
+          <p style="margin-top:0.75rem;">How far along is this transition?</p>
+          <input type="range" class="progress-slider" id="progress-slider" min="0" max="100" value="50">
+          <div class="progress-labels"><span>Just beginning</span><span>Halfway</span><span>Nearly there</span></div>
+        </div>
+      </div>
+
+      <button class="btn-primary" onclick="saveSeasonFromPicker()">Set Our Season →</button>
+    </div>
+
+    <div id="inferring-msg" style="text-align:center; padding:2rem 0; color:var(--warm-gray); font-size:0.88rem;">
+      <div class="spinner" style="width:28px;height:28px;margin-bottom:0.75rem;"></div>
+      Seven is reading your profiles...
+    </div>
+  </div>
+</div>
+
+<!-- Main view -->
+<div id="state-main" class="state">
+
+  <!-- Season banner (color changes with season) -->
+  <div class="season-banner" id="season-banner">
+    <div class="banner-eyebrow">Your Current Season</div>
+    <div class="banner-season-num" id="banner-num"></div>
+    <div class="banner-season-name" id="banner-name"></div>
+    <div class="banner-season-desc" id="banner-desc"></div>
+  </div>
+
+  <!-- Transition alert -->
+  <div class="transition-alert" id="transition-alert"></div>
+
+  <!-- Spectrum bar -->
+  <div class="spectrum-wrap">
+    <div class="spectrum-label">Where you are in your journey</div>
+    <div class="spectrum-bar-wrap">
+      <div class="spectrum-bar">
+        <div class="spectrum-indicator" id="spectrum-dot"></div>
+      </div>
+    </div>
+    <div class="spectrum-season-labels" id="spectrum-labels"></div>
+  </div>
+
+  <!-- Main content -->
+  <div class="main-content">
+    <div class="actions-row">
+      <button class="btn-action primary" onclick="openUpdateSheet()">Update our season</button>
+      <a href="/dashboard.html" class="btn-action">Dashboard</a>
+    </div>
+
+    <div class="section-title">About this season</div>
+    <div class="insights-card">
+      <p id="season-insight"></p>
+    </div>
+  </div>
+</div>
+
+<!-- Update sheet (bottom sheet / modal) -->
+<div class="update-overlay" id="update-overlay" onclick="closeUpdateSheet(event)">
+  <div class="update-sheet" style="position:relative;">
+    <button class="sheet-close" onclick="closeUpdateSheet()">✕</button>
+    <h3>Update Your Season</h3>
+    <p>Select where you are now. If you're between two seasons, mark the transition.</p>
+
+    <div class="season-grid" id="update-season-grid"></div>
+
+    <div class="transition-toggle" style="margin-bottom:1rem;">
+      <label>
+        <input type="checkbox" id="update-is-transitioning" onchange="toggleUpdateTransition()">
+        We're in transition between seasons
+      </label>
+      <div class="transition-sub" id="update-transition-sub">
+        <p>Moving toward:</p>
+        <div class="season-grid" id="update-season-next-grid"></div>
+        <p style="margin-top:0.75rem;">How far along?</p>
+        <input type="range" class="progress-slider" id="update-progress-slider" min="0" max="100" value="50">
+        <div class="progress-labels"><span>Just beginning</span><span>Halfway</span><span>Nearly there</span></div>
+      </div>
+    </div>
+
+    <button class="btn-primary" onclick="saveSeasonFromUpdate()">Save →</button>
+  </div>
+</div>
+
+<script>
+  // ── Season data ────────────────────────────────────────────────────────────
+
+  const SEASON_DATA = {
+    standard: [
+      { num: 1, name: "Engagement & Newlyweds",  color: "#C4963A", desc: "The first years together — establishing life as one, navigating early expectations, discovering each other in daily life." },
+      { num: 2, name: "Building a Home",          color: "#2D6A8F", desc: "Careers, finances, routines, and identity as a couple. The foundation years — before the world shifts." },
+      { num: 3, name: "Young Children",           color: "#4A9A6A", desc: "Babies and toddlers. Exhaustion, new roles, parenting philosophies tested. Intimacy under pressure. Everything changes." },
+      { num: 4, name: "School-Age Children",      color: "#D4793A", desc: "The busiest season. Activities, schedules, split attention. Identity can quietly get lost here." },
+      { num: 5, name: "Teenagers",                color: "#7A5AA0", desc: "Parenting peaks in complexity. The marriage often gets deprioritized. Re-evaluation begins — of everything." },
+      { num: 6, name: "Empty Nest",               color: "#3A9A9A", desc: "Children leave. You rediscover each other — or don't. One of the most pivotal transitions in a marriage." },
+      { num: 7, name: "Legacy & Retirement",      color: "#8A3A5A", desc: "The final chapter. Purpose, meaning, grandchildren, and health. Deeply significant — and quietly challenging." }
+    ],
+    child_free: [
+      { num: 1, name: "Engagement & Newlyweds",  color: "#C4963A", desc: "The first years together — establishing life as one, navigating early expectations, discovering each other in daily life." },
+      { num: 2, name: "Building a Home",          color: "#2D6A8F", desc: "Careers, finances, routines, and identity as a couple. The foundation years." },
+      { num: 3, name: "Building Depth",           color: "#4A9A6A", desc: "Your world shifts around you while your path goes a different direction. Intentional partnership deepens in ways others may not see." },
+      { num: 4, name: "The Parallel Years",       color: "#D4793A", desc: "Fully adult partnership. Watching peers parent while you build something different — and often more intentional." },
+      { num: 5, name: "Mid-Journey",              color: "#7A5AA0", desc: "The conversations empty-nesters have, arrived at by a different road. Re-evaluation, purpose, and depth." },
+      { num: 6, name: "Empty Nest",               color: "#3A9A9A", desc: "Deep partnership. Reimagining what comes next together, without that particular transition others face." },
+      { num: 7, name: "Legacy & Retirement",      color: "#8A3A5A", desc: "The final chapter. Purpose, meaning, contribution. What does your legacy look like — and who have you become together?" }
+    ],
+    navigating: null // uses standard data, sensitive language
+  };
+
+  function getSeasons(track) {
+    return SEASON_DATA[track] || SEASON_DATA.standard;
+  }
+
+  // ── State ──────────────────────────────────────────────────────────────────
+  let coupleId      = localStorage.getItem("7s_couple_id");
+  let individualId  = localStorage.getItem("7s_individual_id");
+  let currentTrack  = "standard";
+  let selectedTrack = null;
+  let pickerSeason  = null;
+  let pickerNext    = null;
+  let updateSeason  = null;
+  let updateNext    = null;
+
+  // ── Auth ───────────────────────────────────────────────────────────────────
+  async function checkAuth() {
+    try {
+      const res = await fetch("/api/auth/me");
+      if (!res.ok) { window.location.href = "/login.html"; return false; }
+      const user = await res.json();
+      individualId = user.individual_id;
+      coupleId     = user.couple_id;
+      localStorage.setItem("7s_individual_id", user.individual_id);
+      localStorage.setItem("7s_couple_id",     user.couple_id);
+      localStorage.setItem("7s_name",          user.name);
+      return true;
+    } catch { window.location.href = "/login.html"; return false; }
+  }
+
+  async function logout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    localStorage.clear();
+    window.location.href = "/login.html";
+  }
+
+  // ── Boot ───────────────────────────────────────────────────────────────────
+  async function init() {
+    if (!await checkAuth()) return;
+    if (!coupleId) { window.location.href = "/dashboard.html"; return; }
+
+    const data = await fetch("/api/couple/" + coupleId + "/season").then(r => r.json()).catch(() => null);
+
+    if (!data || !data.season_track || data.season_current === null) {
+      // First time — go through setup
+      if (!data || !data.season_track || data.season_track === "standard" && data.season_current === null) {
+        setState("state-setup-path");
+      } else {
+        currentTrack = data.season_track;
+        startSeasonSetup();
+      }
+    } else {
+      currentTrack = data.season_track;
+      renderMain(data);
+    }
+  }
+
+  function setState(id) {
+    document.querySelectorAll(".state").forEach(el => el.classList.remove("active"));
+    document.getElementById(id).classList.add("active");
+  }
+
+  // ── Track setup ────────────────────────────────────────────────────────────
+  function selectTrack(track) {
+    selectedTrack = track;
+    document.querySelectorAll(".track-card").forEach(c => c.classList.remove("selected"));
+    document.getElementById("track-" + track).classList.add("selected");
+    document.getElementById("track-continue-btn").disabled = false;
+  }
+
+  async function confirmTrack() {
+    if (!selectedTrack) return;
+    await fetch("/api/couple/" + coupleId + "/season", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ season_track: selectedTrack, season_current: null })
+    });
+    currentTrack = selectedTrack;
+    startSeasonSetup();
+  }
+
+  // ── Season setup ───────────────────────────────────────────────────────────
+  async function startSeasonSetup() {
+    setState("state-setup-season");
+    document.getElementById("inferring-msg").style.display = "block";
+    document.getElementById("suggestion-card").style.display = "none";
+    document.getElementById("season-picker").style.display = "none";
+
+    try {
+      const res  = await fetch("/api/couple/" + coupleId + "/season/infer", { method: "POST" });
+      const data = await res.json();
+
+      document.getElementById("inferring-msg").style.display = "none";
+
+      if (data.suggested_season) {
+        const seasons = getSeasons(currentTrack);
+        const s = seasons[data.suggested_season - 1];
+        document.getElementById("suggestion-season-name").textContent = "Season " + data.suggested_season + " — " + s.name;
+        document.getElementById("suggestion-reason").textContent = data.reason;
+        const confEl = document.getElementById("suggestion-confidence");
+        confEl.textContent = "Confidence: " + data.confidence;
+        confEl.className = "suggestion-confidence confidence-" + data.confidence;
+        document.getElementById("suggestion-card").style.display = "block";
+        document.getElementById("suggestion-card").dataset.season = data.suggested_season;
+        document.getElementById("suggestion-card").dataset.next   = data.suggested_season_next || "";
+        document.getElementById("suggestion-card").dataset.progress = data.suggested_progress || 0;
+      } else {
+        showSeasonPicker();
+      }
+    } catch {
+      document.getElementById("inferring-msg").style.display = "none";
+      showSeasonPicker();
+    }
+  }
+
+  async function confirmSuggestion() {
+    const card    = document.getElementById("suggestion-card");
+    const season  = parseInt(card.dataset.season);
+    const next    = parseInt(card.dataset.next) || null;
+    const progress = parseFloat(card.dataset.progress) || 0;
+    await saveSeason(currentTrack, season, next, progress);
+  }
+
+  function showSeasonPicker() {
+    document.getElementById("suggestion-card").style.display = "none";
+    document.getElementById("season-picker").style.display   = "block";
+    buildSeasonGrid("season-grid", "picker");
+    buildSeasonGrid("season-next-grid", "picker-next");
+  }
+
+  function buildSeasonGrid(containerId, prefix) {
+    const seasons = getSeasons(currentTrack);
+    const container = document.getElementById(containerId);
+    container.innerHTML = seasons.map(s => `
+      <div class="season-option" id="${prefix}-s${s.num}" onclick="selectSeasonOption('${prefix}', ${s.num})"
+           style="border-color: ${s.color}20;">
+        <div class="s-num" style="color:${s.color}">Season ${s.num}</div>
+        <div class="s-name">${s.name}</div>
+        <div class="s-desc">${s.desc}</div>
+      </div>`).join("");
+  }
+
+  function selectSeasonOption(prefix, num) {
+    const seasons = getSeasons(currentTrack);
+    document.querySelectorAll(`[id^="${prefix}-s"]`).forEach(el => {
+      el.classList.remove("selected");
+      el.style.background = "";
+      el.style.borderColor = seasons[parseInt(el.id.replace(`${prefix}-s`, "")) - 1]?.color + "20" || "";
+    });
+    const el = document.getElementById(`${prefix}-s${num}`);
+    const color = seasons[num - 1]?.color;
+    el.classList.add("selected");
+    el.style.background = color + "12";
+    el.style.borderColor = color;
+
+    if (prefix === "picker")      pickerSeason = num;
+    if (prefix === "picker-next") pickerNext   = num;
+    if (prefix === "update")      updateSeason = num;
+    if (prefix === "update-next") updateNext   = num;
+  }
+
+  function toggleTransition() {
+    const checked = document.getElementById("is-transitioning").checked;
+    document.getElementById("transition-sub").classList.toggle("visible", checked);
+    if (!checked) pickerNext = null;
+  }
+
+  function toggleUpdateTransition() {
+    const checked = document.getElementById("update-is-transitioning").checked;
+    document.getElementById("update-transition-sub").classList.toggle("visible", checked);
+    if (!checked) updateNext = null;
+  }
+
+  async function saveSeasonFromPicker() {
+    if (!pickerSeason) { alert("Please select a season."); return; }
+    const progress = pickerNext ? document.getElementById("progress-slider").value / 100 : 0;
+    await saveSeason(currentTrack, pickerSeason, pickerNext, progress);
+  }
+
+  async function saveSeasonFromUpdate() {
+    if (!updateSeason) { alert("Please select a season."); return; }
+    const progress = updateNext ? document.getElementById("update-progress-slider").value / 100 : 0;
+    closeUpdateSheet();
+    await saveSeason(currentTrack, updateSeason, updateNext, progress);
+  }
+
+  async function saveSeason(track, current, next, progress) {
+    await fetch("/api/couple/" + coupleId + "/season", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ season_track: track, season_current: current, season_next: next || null, season_progress: progress || 0 })
+    });
+    const data = await fetch("/api/couple/" + coupleId + "/season").then(r => r.json());
+    renderMain(data);
+  }
+
+  // ── Main render ────────────────────────────────────────────────────────────
+  function renderMain(data) {
+    setState("state-main");
+    const seasons = getSeasons(data.season_track || "standard");
+    const current = seasons[(data.season_current || 1) - 1];
+    const next    = data.season_next ? seasons[data.season_next - 1] : null;
+    const progress = data.season_progress || 0;
+
+    // Season banner color
+    let bannerColor = current.color;
+    if (next && progress > 0) {
+      // Blend colors during transition
+      bannerColor = blendColors(current.color, next.color, progress);
+    }
+    document.getElementById("season-banner").style.background = bannerColor;
+
+    // Banner text
+    document.getElementById("banner-num").textContent = "Season " + current.num;
+    document.getElementById("banner-name").textContent = current.name;
+    document.getElementById("banner-desc").textContent = current.desc;
+
+    // Transition alert
+    const alertEl = document.getElementById("transition-alert");
+    if (next && progress > 0) {
+      alertEl.classList.add("visible");
+      alertEl.style.background = blendColors(current.color, next.color, 0.15) + "22";
+      alertEl.style.color      = blendColors(current.color, next.color, 0.5);
+      alertEl.style.borderTop  = "1px solid " + blendColors(current.color, next.color, 0.3) + "44";
+      alertEl.innerHTML = `<strong>You're in transition</strong> — moving from Season ${current.num} (${current.name}) to Season ${next.num} (${next.name}). This is a significant shift in your marriage. Pay close attention to each other right now.`;
+    } else {
+      alertEl.classList.remove("visible");
+    }
+
+    // Spectrum indicator position
+    const totalPos = ((data.season_current - 1) + progress) / 7;
+    document.getElementById("spectrum-dot").style.left = (totalPos * 100) + "%";
+
+    // Spectrum season labels
+    const labelsEl = document.getElementById("spectrum-labels");
+    labelsEl.innerHTML = seasons.map((s, i) => `
+      <span class="spectrum-season-label ${i + 1 === data.season_current ? "active" : ""}"
+            onclick="jumpToSeason(${s.num})" title="${s.name}">
+        ${s.num}<br><span style="font-size:0.6rem">${s.name.split(" ")[0]}</span>
+      </span>`).join("");
+
+    // Season insight
+    document.getElementById("season-insight").textContent = getSeasonInsight(current, next, data.season_track);
+
+    // Pre-populate update sheet
+    updateSeason = data.season_current;
+    updateNext   = data.season_next || null;
+    buildSeasonGrid("update-season-grid", "update");
+    buildSeasonGrid("update-season-next-grid", "update-next");
+    if (updateSeason) selectSeasonOption("update", updateSeason);
+    if (updateNext) {
+      document.getElementById("update-is-transitioning").checked = true;
+      toggleUpdateTransition();
+      selectSeasonOption("update-next", updateNext);
+      document.getElementById("update-progress-slider").value = Math.round(progress * 100);
+    }
+  }
+
+  function jumpToSeason(num) {
+    openUpdateSheet();
+    setTimeout(() => selectSeasonOption("update", num), 50);
+  }
+
+  function getSeasonInsight(current, next, track) {
+    const insights = {
+      1: "This is the season of discovery and establishment. Everything you build here becomes the foundation everything else stands on. Invest in understanding each other deeply — not just who you are now, but who you're becoming.",
+      2: "You're building the infrastructure of a life together. Financial habits, communication rhythms, decision-making patterns — what you establish here will be load-bearing for decades.",
+      3: "The arrival of children reorganizes everything. Couples who thrive here do one thing consistently: they protect their marriage inside the family, not just their family inside the marriage.",
+      4: "The busiest season in most marriages. The biggest risk here is drift — two people running parallel lives that gradually forget to intersect. Intentional connection is not optional right now.",
+      5: "Parenting never demands more than it does in this season. The marriages that struggle most in the Empty Nest often stopped tending to themselves somewhere in the Teenager years. Don't let that happen.",
+      6: "This season surprises more couples than any other. The quiet can be beautiful. It can also be disorienting. Rediscover each other — not who you were, but who you've become.",
+      7: "Legacy isn't just what you leave behind. It's what you are together in these final chapters. Purpose, meaning, health, family — all of it comes into focus here."
+    };
+    const base = insights[current.num] || "";
+    if (next) return base + "\n\nYou're moving toward Season " + next.num + " (" + next.name + "). This transition deserves intentional conversation — what's coming, what you're leaving behind, and how you'll navigate it together.";
+    return base;
+  }
+
+  // ── Color blending ─────────────────────────────────────────────────────────
+  function hexToRgb(hex) {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return [r, g, b];
+  }
+
+  function blendColors(hex1, hex2, t) {
+    const [r1, g1, b1] = hexToRgb(hex1);
+    const [r2, g2, b2] = hexToRgb(hex2);
+    const r = Math.round(r1 + (r2 - r1) * t);
+    const g = Math.round(g1 + (g2 - g1) * t);
+    const b = Math.round(b1 + (b2 - b1) * t);
+    return "#" + [r, g, b].map(v => v.toString(16).padStart(2, "0")).join("");
+  }
+
+  // ── Update sheet ───────────────────────────────────────────────────────────
+  function openUpdateSheet() {
+    document.getElementById("update-overlay").classList.add("open");
+  }
+
+  function closeUpdateSheet(e) {
+    if (e && e.target !== document.getElementById("update-overlay")) return;
+    document.getElementById("update-overlay").classList.remove("open");
+  }
+
+  // ── Boot ───────────────────────────────────────────────────────────────────
+  init();
+</script>
+
+</body>
+</html>

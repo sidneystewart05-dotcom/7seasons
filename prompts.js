@@ -414,6 +414,51 @@ Output format (strict JSON):
 }`;
 }
 
+function buildSeasonInferencePrompt(name1, name2, profile1, profile2, track) {
+  const seasons = track === "child_free" ? [
+    "1: Engagement & Newlyweds — First years, establishing life together",
+    "2: Building a Home — Careers, finances, routines, couple identity",
+    "3: Building Depth — World shifting around you while your path differs",
+    "4: The Parallel Years — Fully adult partnership while peers parent",
+    "5: Mid-Journey — Re-evaluation, purpose, arrived at differently",
+    "6: Empty Nest — Deep partnership, reimagining what comes next",
+    "7: Legacy & Retirement — Purpose, meaning, contribution, final chapter"
+  ] : [
+    "1: Engagement & Newlyweds — First years, establishing life together",
+    "2: Building a Home — Careers, finances, routines, couple identity before children",
+    "3: Young Children — Babies and toddlers, exhaustion, new roles, intimacy under pressure",
+    "4: School-Age Children — Busiest season, schedules, activities, identity gets lost",
+    "5: Teenagers — Parenting peaks, marriage deprioritized, re-evaluation begins",
+    "6: Empty Nest — Children leave, pivotal rediscovery of each other",
+    "7: Legacy & Retirement — Purpose, meaning, grandchildren, health, final chapter"
+  ];
+
+  const hasData = profile1 && Object.keys(profile1.dimensions || {}).length > 0;
+
+  return `You are analyzing relationship profile data to suggest which season of marriage best describes where ${name1} and ${name2} currently are.
+
+The 7 seasons (${track} track):
+${seasons.join("\n")}
+
+${hasData ? `${name1}'s profile:\nDimensions: ${JSON.stringify(profile1.dimensions)}\nDomain summaries: ${JSON.stringify(profile1.summaries)}` : `${name1} has not yet completed their discovery profile.`}
+
+${profile2 && Object.keys(profile2.dimensions || {}).length > 0 ? `${name2}'s profile:\nDimensions: ${JSON.stringify(profile2.dimensions)}\nDomain summaries: ${JSON.stringify(profile2.summaries)}` : `${name2 || "Partner"} has not yet completed their discovery profile.`}
+
+Based on available data, suggest which season they are most likely in.
+- If they appear to be between seasons, note both (season_current and season_next)
+- season_progress: 0.0 = just entered season, 1.0 = about to transition out
+- If you have low or no profile data, return confidence: "low" and make your best guess
+
+Output ONLY valid JSON:
+{
+  "suggested_season": 2,
+  "suggested_season_next": null,
+  "suggested_progress": 0.2,
+  "reason": "Brief explanation referencing specific profile data, or a general explanation if no data is available",
+  "confidence": "high | medium | low"
+}`;
+}
+
 module.exports = {
   DOMAINS,
   buildDiscoveryPrompt,
@@ -422,5 +467,6 @@ module.exports = {
   buildTrajectoryReportPrompt,
   buildSnapPrompt,
   buildSnapExtractionPrompt,
-  buildArgumentSynthesisPrompt
+  buildArgumentSynthesisPrompt,
+  buildSeasonInferencePrompt
 };

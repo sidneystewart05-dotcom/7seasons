@@ -19,7 +19,8 @@ const {
   buildTrajectoryReportPrompt,
   buildSnapPrompt,
   buildSnapExtractionPrompt,
-  buildArgumentSynthesisPrompt
+  buildArgumentSynthesisPrompt,
+  buildSeasonInferencePrompt
 } = require("./prompts");
 
 const app = express();
@@ -110,6 +111,13 @@ db.exec(`
   );
 `);
 
+// Safely add season columns to existing databases
+try { db.exec("ALTER TABLE couples ADD COLUMN season_track TEXT DEFAULT 'standard'"); } catch {}
+try { db.exec("ALTER TABLE couples ADD COLUMN season_current INTEGER"); } catch {}
+try { db.exec("ALTER TABLE couples ADD COLUMN season_next INTEGER"); } catch {}
+try { db.exec("ALTER TABLE couples ADD COLUMN season_progress REAL DEFAULT 0.0"); } catch {}
+try { db.exec("ALTER TABLE couples ADD COLUMN season_updated TEXT"); } catch {}
+
 // Safely add auth columns to existing databases
 try { db.exec("ALTER TABLE individuals ADD COLUMN email TEXT"); } catch {}
 try { db.exec("ALTER TABLE individuals ADD COLUMN password_hash TEXT"); } catch {}
@@ -151,7 +159,11 @@ const stmts = {
 
   // Argument synthesis
   createSynthesis: db.prepare("INSERT INTO argument_synthesis (argument_id, couple_view, counselor_view) VALUES (?, ?, ?)"),
-  getSynthesis: db.prepare("SELECT * FROM argument_synthesis WHERE argument_id = ?")
+  getSynthesis: db.prepare("SELECT * FROM argument_synthesis WHERE argument_id = ?"),
+
+  // Season
+  getCoupleSeason: db.prepare("SELECT season_track, season_current, season_next, season_progress, season_updated FROM couples WHERE id = ?"),
+  updateCoupleSeason: db.prepare("UPDATE couples SET season_track=?, season_current=?, season_next=?, season_progress=?, season_updated=datetime('now') WHERE id = ?")
 };
 
 // ─── Anthropic ───────────────────────────────────────────────────────────────
@@ -830,6 +842,62 @@ app.get("/api/argue/:argument_id/counselor", (req, res) => {
     responses: enriched,
     generated_at: synthesis.generated_at
   });
+});
+
+// ─── Season ───────────────────────────────────────────────────────────────────
+
+app.get("/api/couple/:id/season", (req, res) => {
+  const row = stmts.getCoupleSeason.get(req.params.id);
+  if (!row) return res.status(404).json({ error: "Not found" });
+  res.json({
+    season_track:    row.season_track    || "standard",
+    season_current:  row.season_current  || null,
+    season_next:     row.season_next     || null,
+    season_progress: row.season_progress || 0.0,
+    season_updated:  row.season_updated  || null
+  });
+});
+
+app.post("/api/couple/:id/season", (req, res) => {
+  const { season_track, season_current, season_next, season_progress } = req.body;
+  stmts.updateCoupleSeason.run(
+    season_track || "standard",
+    season_current || null,
+    season_next    || null,
+    season_progress || 0.0,
+    req.params.id
+  );
+  res.json({ success: true });
+});
+
+app.post("/api/couple/:id/season/infer", async (req, res) => {
+  const couple  = stmts.getCouple.get(req.params.id);
+  if (!couple) return res.status(404).json({ error: "Not found" });
+
+  const members = stmts.getIndividualsByCouple.all(req.params.id);
+  const [p1, p2] = members;
+
+  const profile = (ind) => ind ? {
+    dimensions: JSON.parse(ind.dimensions || "{}"),
+    summaries:  JSON.parse(ind.domain_summaries || "{}")
+  } : {};
+
+  try {
+    const raw = await anthropic.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 512,
+      messages: [{ role: "user", content: buildSeasonInferencePrompt(
+        p1?.name || "Partner 1",
+        p2?.name || "Partner 2",
+        profile(p1), profile(p2),
+        couple.season_track || "standard"
+      )}]
+    });
+    const result = JSON.parse(raw.content[0].text.replace(/^```json\n?|```$/gm, "").trim());
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ─── Insight: deeper behavioral analysis ─────────────────────────────────────
