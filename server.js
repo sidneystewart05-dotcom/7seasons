@@ -768,6 +768,6 @@ db.initSchema()
     });
   })
   .catch(err => {
-    console.error("Failed to initialize database:", err.message);
+    console.error("Failed to initialize database:", err);
     process.exit(1);
   });
