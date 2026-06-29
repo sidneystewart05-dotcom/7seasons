@@ -106,6 +106,12 @@ Exactly one sentence. A warm acknowledgment of what ${name} just shared. Specifi
 ${includeSynthesis ? `[B]
 A candid professional observation synthesizing what you have noticed across the last several exchanges — not just this response, but the patterns and themes emerging from the conversation so far. Step back and name something meaningful you are seeing. 2–4 sentences. Write as a private counselor note.
 
+Then on a new line, in exactly this format (required, no variations):
+SEASONS: [season number] ([impact: "risk" or "strength" — 5–10 word note])
+Pick 1–2 of the 7 seasons where this pattern matters most. Separate multiple seasons with a comma.
+The 7 seasons: 1=Engagement & Newlyweds, 2=Building a Home, 3=Young Children, 4=School-Age Children, 5=Teenagers, 6=Empty Nest, 7=Legacy & Retirement
+Example: SEASONS: 3 (risk — exhaustion will amplify this tendency), 6 (strength — becomes an asset in rediscovery)
+
 ` : ""}[C]
 Your follow-up question if you have one — one question only, written directly to ${name}. If you are closing this domain, write your brief warm reflection here and include the phrase "whenever you're ready, you can move on to the next topic." Do not ask another question after the closing.${!includeSynthesis ? "\n\nDo not include a [B] section in this response." : ""}
 

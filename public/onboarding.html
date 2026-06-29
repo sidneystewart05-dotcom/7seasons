@@ -397,6 +397,53 @@
       color: var(--text); border-top: 1px solid #EDE5D0; padding-top: 0.75rem;
     }
 
+    /* ── Insights reveal (end-of-domain) ── */
+    .insights-reveal {
+      max-width: 680px; margin: 1.25rem auto 0; padding: 0 1.5rem;
+    }
+    .ir-header {
+      font-size: 0.72rem; font-weight: 500; color: var(--gold);
+      letter-spacing: 0.1em; text-transform: uppercase;
+      margin-bottom: 0.85rem; text-align: center;
+    }
+    .ir-card {
+      background: #FEFCF7; border: 1px solid #EDE5D0; border-radius: 12px;
+      padding: 1.25rem 1.4rem; margin-bottom: 0.85rem;
+    }
+    .ir-text {
+      font-size: 0.9rem; line-height: 1.75; color: #4A3F30; margin-bottom: 0.9rem;
+    }
+    .ir-seasons { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.9rem; align-items: center; }
+    .ir-seasons-label {
+      font-size: 0.68rem; font-weight: 500; color: var(--warm-gray);
+      letter-spacing: 0.07em; text-transform: uppercase; margin-right: 0.2rem;
+    }
+    .season-badge {
+      font-size: 0.7rem; font-weight: 500; padding: 0.25rem 0.7rem;
+      border-radius: 100px; letter-spacing: 0.02em;
+    }
+    .season-badge.risk { background: #FDF3E7; border: 1px solid #E8C080; color: #8B6020; }
+    .season-badge.strength { background: #F0F5F0; border: 1px solid #9DBD9D; color: #3A6040; }
+    .ir-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+    .btn-ir-deeper {
+      background: none; border: 1.5px solid var(--gold); color: var(--gold);
+      border-radius: 8px; padding: 0.38rem 0.9rem; font-family: "Inter", sans-serif;
+      font-size: 0.76rem; font-weight: 500; cursor: pointer; transition: all 0.2s;
+    }
+    .btn-ir-deeper:hover { background: var(--gold); color: white; }
+    .btn-ir-deeper:disabled { opacity: 0.5; cursor: default; }
+    .btn-ir-share {
+      background: var(--navy); color: white; border: none;
+      border-radius: 8px; padding: 0.38rem 0.9rem; font-family: "Inter", sans-serif;
+      font-size: 0.76rem; font-weight: 500; cursor: pointer; transition: background 0.2s;
+    }
+    .btn-ir-share:hover { background: var(--slate); }
+    .btn-ir-share:disabled { background: #9DBD9D; cursor: default; }
+    .ir-deep-result {
+      margin-top: 0.9rem; font-size: 0.85rem; line-height: 1.75;
+      color: var(--text); border-top: 1px solid #EDE5D0; padding-top: 0.9rem;
+    }
+
     .listening-label {
       font-size: 0.72rem; color: #C0392B; font-weight: 500;
       text-align: center; padding: 0.25rem 0; display: none; letter-spacing: 0.05em;
@@ -502,6 +549,12 @@
   <button onclick="saveAndExit()">Save &amp; close session</button>
 </div>
 
+<!-- Insights reveal (shown at end of each domain) -->
+<div class="insights-reveal" id="insights-reveal" style="display:none">
+  <div class="ir-header">✦ What Seven noticed in this conversation</div>
+  <div id="ir-cards"></div>
+</div>
+
 <!-- Input -->
 <div class="listening-label" id="listening-label">Listening...</div>
 <div class="input-area" id="input-area">
@@ -552,6 +605,32 @@
   let domainReadyToAdvance = false;
   let lastAIText = "";
   let lastUserMessage = "";
+  let pendingInsights = [];
+  let partnerName = null;
+
+  const SEASON_NAMES = ["", "Engagement & Newlyweds", "Building a Home", "Young Children", "School-Age Children", "Teenagers", "Empty Nest", "Legacy & Retirement"];
+
+  function parseSeasonTags(text) {
+    const match = text.match(/SEASONS:\s*(.+)$/m);
+    if (!match) return [];
+    const tags = [];
+    const parts = match[1].split(/,\s*(?=\d)/);
+    for (const part of parts) {
+      const numMatch = part.match(/(\d)/);
+      if (!numMatch) continue;
+      const num = parseInt(numMatch[1]);
+      if (num < 1 || num > 7) continue;
+      const noteMatch = part.match(/\(([^)]+)\)/);
+      const note = noteMatch ? noteMatch[1] : "";
+      const impact = note.toLowerCase().includes("strength") ? "strength" : "risk";
+      tags.push({ num, note, impact });
+    }
+    return tags;
+  }
+
+  function stripSeasonLine(text) {
+    return text.replace(/\n?SEASONS:\s*.+$/m, "").trim();
+  }
 
   function repeatLast() { if (lastAIText) speak(lastAIText); }
 
@@ -594,6 +673,7 @@
         return;
       }
       currentDomain = me.current_domain || 0;
+      partnerName = me.partner?.name || null;
       updateProgress();
       startDomain();
     } catch (e) {
@@ -627,6 +707,7 @@
           if (completionPhrases.some(p => lastAI.includes(p))) {
             domainReadyToAdvance = true;
             document.getElementById("ready-hint").classList.add("visible");
+            showInsightReveal();
           }
         }
         setInputEnabled(true);
@@ -707,33 +788,50 @@
     bubble.innerHTML = mainHTML || escapeHTML(text);
     contentWrap.appendChild(bubble);
 
-    // Insight card: B
+    // Collect insight silently — shown at end of domain, not inline
     if (parts.insight) {
-      const insightId = "ins-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6);
-      const card = document.createElement("div");
-      card.className = "insight-card";
-      card.innerHTML = `
-        <button class="insight-toggle" onclick="toggleInsight('${insightId}')">✦ Seven noticed something</button>
-        <div class="insight-body" id="${insightId}" style="display:none">
-          <div>${escapeHTML(parts.insight)}</div>
-          <button class="btn-deeper" onclick="deepenInsight(this, '${insightId}')">What might this mean for me? →</button>
-          <div class="deeper-analysis" id="deep-${insightId}" style="display:none"></div>
-        </div>`;
-      contentWrap.appendChild(card);
+      const cleanText = stripSeasonLine(parts.insight);
+      const seasonTags = parseSeasonTags(parts.insight);
+      pendingInsights.push({ text: cleanText, seasonTags, userContext: lastUserMessage || "" });
     }
 
     return contentWrap;
   }
 
-  function toggleInsight(id) {
-    const body = document.getElementById(id);
-    if (body) body.style.display = body.style.display === "none" ? "block" : "none";
+  function showInsightReveal() {
+    if (pendingInsights.length === 0) return;
+    const container = document.getElementById("ir-cards");
+    const reveal = document.getElementById("insights-reveal");
+    container.innerHTML = "";
+
+    pendingInsights.forEach((insight, i) => {
+      const deepId = "ir-deep-" + i;
+      const badges = insight.seasonTags.map(tag => {
+        const name = SEASON_NAMES[tag.num] || ("Season " + tag.num);
+        return `<span class="season-badge ${tag.impact}">Season ${tag.num} · ${escapeHTML(name)} · ${tag.impact}</span>`;
+      }).join("");
+
+      const card = document.createElement("div");
+      card.className = "ir-card";
+      card.innerHTML = `
+        <div class="ir-text">${escapeHTML(insight.text)}</div>
+        ${insight.seasonTags.length > 0 ? `<div class="ir-seasons"><span class="ir-seasons-label">Season impact</span>${badges}</div>` : ""}
+        <div class="ir-actions">
+          <button class="btn-ir-deeper" onclick="deepenRevealInsight(this, ${i}, '${deepId}')">What might this mean for me? →</button>
+          ${partnerName ? `<button class="btn-ir-share" onclick="shareInsight(${i}, this)">Share with ${escapeHTML(partnerName)} →</button>` : ""}
+        </div>
+        <div class="ir-deep-result" id="${deepId}" style="display:none"></div>`;
+      container.appendChild(card);
+    });
+
+    reveal.style.display = "block";
+    setTimeout(scrollToBottom, 80);
   }
 
-  async function deepenInsight(btn, insightId) {
-    const insightBody = document.getElementById(insightId);
-    const insightText = insightBody ? insightBody.querySelector("div").textContent : "";
-    const deepDiv = document.getElementById("deep-" + insightId);
+  async function deepenRevealInsight(btn, index, deepId) {
+    const insight = pendingInsights[index];
+    if (!insight) return;
+    const deepDiv = document.getElementById(deepId);
     if (!deepDiv) return;
 
     btn.disabled = true;
@@ -745,8 +843,8 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           individual_id: individualId,
-          insight: insightText,
-          user_response: lastUserMessage,
+          insight: insight.text,
+          user_response: insight.userContext,
           domain_index: currentDomain
         })
       });
@@ -761,6 +859,35 @@
       }
     } catch {
       btn.textContent = "What might this mean for me? →";
+      btn.disabled = false;
+    }
+  }
+
+  async function shareInsight(index, btn) {
+    const insight = pendingInsights[index];
+    if (!insight) return;
+    btn.disabled = true;
+    btn.textContent = "Sharing...";
+    try {
+      const res = await fetch("/api/insights/share", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          individual_id: individualId,
+          insight_text: insight.text,
+          domain_index: currentDomain,
+          season_tags: insight.seasonTags
+        })
+      });
+      if (res.ok) {
+        btn.textContent = "Shared ✓";
+        btn.style.background = "#9DBD9D";
+      } else {
+        btn.textContent = "Share with " + (partnerName || "Partner") + " →";
+        btn.disabled = false;
+      }
+    } catch {
+      btn.textContent = "Share with " + (partnerName || "Partner") + " →";
       btn.disabled = false;
     }
   }
@@ -896,6 +1023,7 @@
       if (signalledComplete) {
         domainReadyToAdvance = true;
         document.getElementById("ready-hint").classList.add("visible");
+        showInsightReveal();
       }
 
       // Restructure streaming bubble into A/B/C layout
@@ -937,6 +1065,8 @@
 
     setInputEnabled(false);
     document.getElementById("ready-hint").classList.remove("visible");
+    document.getElementById("insights-reveal").style.display = "none";
+    pendingInsights = [];
 
     try {
       const res = await fetch("/api/domain/complete", {

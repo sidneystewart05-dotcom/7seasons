@@ -100,6 +100,57 @@
     .btn-copy-msg:hover { background: var(--slate); }
     .btn-close-modal { background: none; border: none; color: var(--warm-gray); font-family: "Inter", sans-serif; font-size: 0.85rem; cursor: pointer; padding: 0.65rem 0; }
     .btn-close-modal:hover { color: var(--navy); }
+
+    /* ── Partner insights ── */
+    .insights-section { margin-bottom: 2rem; }
+    .insight-badge {
+      display: inline-block; background: var(--gold); color: white;
+      font-size: 0.65rem; font-weight: 600; padding: 0.15rem 0.55rem;
+      border-radius: 100px; margin-left: 0.5rem; vertical-align: middle;
+      letter-spacing: 0.04em;
+    }
+    .insight-card-dashboard {
+      background: white; border: 1px solid var(--border); border-radius: 12px;
+      padding: 1.25rem 1.4rem; margin-bottom: 0.85rem;
+    }
+    .insight-domain {
+      display: inline-block; font-size: 0.68rem; font-weight: 500; color: var(--warm-gray);
+      letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.6rem;
+    }
+    .insight-card-text { font-size: 0.9rem; line-height: 1.75; color: var(--text); margin-bottom: 0.85rem; }
+    .insight-card-seasons { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.85rem; }
+    .season-badge {
+      font-size: 0.7rem; font-weight: 500; padding: 0.25rem 0.7rem;
+      border-radius: 100px; letter-spacing: 0.02em;
+    }
+    .season-badge.risk { background: #FDF3E7; border: 1px solid #E8C080; color: #8B6020; }
+    .season-badge.strength { background: #F0F5F0; border: 1px solid #9DBD9D; color: #3A6040; }
+    .insight-card-footer {
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 0.5rem;
+    }
+    .insight-status { font-size: 0.78rem; color: var(--warm-gray); }
+    .btn-discuss {
+      background: var(--navy); color: white; border: none; border-radius: 8px;
+      padding: 0.45rem 1rem; font-family: "Inter", sans-serif; font-size: 0.78rem;
+      font-weight: 500; cursor: pointer; transition: background 0.2s;
+    }
+    .btn-discuss:hover { background: var(--slate); }
+    .coffee-section { margin-top: 0.85rem; border-top: 1px solid var(--border); padding-top: 0.85rem; }
+    .coffee-date-display { font-size: 0.88rem; color: var(--navy); font-weight: 500; }
+    .coffee-input-wrap { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+    .coffee-input {
+      flex: 1; min-width: 200px; border: 1px solid var(--border); border-radius: 8px;
+      padding: 0.5rem 0.85rem; font-family: "Inter", sans-serif; font-size: 0.85rem;
+      color: var(--text); background: white; outline: none;
+    }
+    .coffee-input:focus { border-color: var(--gold); }
+    .btn-coffee {
+      background: none; border: 1.5px solid var(--gold); color: var(--gold);
+      border-radius: 8px; padding: 0.45rem 0.9rem; font-family: "Inter", sans-serif;
+      font-size: 0.78rem; font-weight: 500; cursor: pointer; transition: all 0.2s; white-space: nowrap;
+    }
+    .btn-coffee:hover { background: var(--gold); color: white; }
   </style>
 </head>
 <body>
@@ -160,6 +211,7 @@
     const res = await fetch("/api/me/" + individualId);
     const me = await res.json();
     render(me);
+    if (me.partner) loadInsights(me.couple_id, me.id, me.partner.name);
   }
 
   function render(me) {
@@ -174,6 +226,9 @@
         <h1>Welcome back, ${me.name}.</h1>
         <p>Your marriage journey dashboard.</p>
       </div>
+
+      <!-- Partner insights anchor (populated async) -->
+      <div id="insights-anchor"></div>
 
       <!-- Couple status -->
       <div class="status-grid">
@@ -331,6 +386,147 @@
   function copyCounselorLink(coupleId) {
     const url = window.location.origin + "/counselor.html?couple=" + coupleId;
     navigator.clipboard.writeText(url).then(() => alert("Counselor link copied to clipboard."));
+  }
+
+  // ── Partner insights ──────────────────────────────────────────────────────
+
+  const SEASON_NAMES = ["", "Engagement & Newlyweds", "Building a Home", "Young Children", "School-Age Children", "Teenagers", "Empty Nest", "Legacy & Retirement"];
+
+  function escapeHTML(t) {
+    return (t || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  async function loadInsights(coupleId, myId, partnerName) {
+    try {
+      const res = await fetch("/api/insights/" + coupleId + "?viewer_id=" + myId);
+      if (!res.ok) return;
+      const insights = await res.json();
+      if (!insights.length) return;
+
+      const fromPartner = insights.filter(i => !i.is_mine);
+      const fromMe = insights.filter(i => i.is_mine);
+      if (!fromPartner.length && !fromMe.length) return;
+
+      // Auto-mark partner's insights as read
+      fromPartner.filter(i => i.discussion_status === "shared").forEach(i => {
+        fetch("/api/insights/" + i.id + "/read", { method: "POST" });
+      });
+
+      const anchor = document.getElementById("insights-anchor");
+      if (!anchor) return;
+
+      let html = "";
+
+      if (fromPartner.length > 0) {
+        const newCount = fromPartner.filter(i => i.discussion_status === "shared").length;
+        html += `<div class="insights-section">
+          <div class="section-title">${escapeHTML(partnerName)} shared something with you${newCount > 0 ? ` <span class="insight-badge">${newCount} new</span>` : ""}</div>
+          ${fromPartner.map(i => partnerInsightCard(i, myId)).join("")}
+        </div>`;
+      }
+
+      if (fromMe.length > 0) {
+        html += `<div class="insights-section">
+          <div class="section-title">Insights you shared with ${escapeHTML(partnerName)}</div>
+          ${fromMe.map(i => myInsightCard(i, partnerName)).join("")}
+        </div>`;
+      }
+
+      anchor.innerHTML = html;
+    } catch {}
+  }
+
+  function seasonBadges(tags) {
+    return (tags || []).map(tag => {
+      const name = SEASON_NAMES[tag.num] || ("Season " + tag.num);
+      return `<span class="season-badge ${tag.impact}">Season ${tag.num} · ${escapeHTML(name)} · ${tag.impact}</span>`;
+    }).join("");
+  }
+
+  function partnerInsightCard(insight, myId) {
+    const statusText = { shared: "New", read: "You've read this", discussion_requested: "You want to discuss this", scheduled: "Coffee date set" }[insight.discussion_status] || "";
+    const canDiscuss = insight.discussion_status === "shared" || insight.discussion_status === "read";
+    const coffeeHtml = (insight.discussion_status === "discussion_requested" || insight.discussion_status === "scheduled")
+      ? `<div class="coffee-section">${insight.coffee_date
+          ? `<div class="coffee-date-display">☕ Coffee date: ${escapeHTML(insight.coffee_date)}</div>`
+          : `<div class="coffee-input-wrap">
+              <input class="coffee-input" id="ci-${insight.id}" placeholder="When? e.g. Saturday morning, July 5th" />
+              <button class="btn-coffee" onclick="setCoffeeDate('${insight.id}')">Set date →</button>
+             </div>`
+        }</div>`
+      : "";
+
+    return `<div class="insight-card-dashboard">
+      ${insight.domain_name ? `<div class="insight-domain">${escapeHTML(insight.domain_name)}</div>` : ""}
+      <div class="insight-card-text">${escapeHTML(insight.insight_text)}</div>
+      ${insight.season_tags.length ? `<div class="insight-card-seasons">${seasonBadges(insight.season_tags)}</div>` : ""}
+      <div class="insight-card-footer">
+        <span class="insight-status">${statusText}</span>
+        ${canDiscuss ? `<button class="btn-discuss" onclick="requestDiscussion('${insight.id}')">I'd like to talk about this →</button>` : ""}
+      </div>
+      ${coffeeHtml}
+    </div>`;
+  }
+
+  function myInsightCard(insight, partnerName) {
+    const statusText = {
+      shared: `Waiting for ${escapeHTML(partnerName)} to read`,
+      read: `${escapeHTML(partnerName)} has read this`,
+      discussion_requested: `${escapeHTML(partnerName)} wants to discuss this`,
+      scheduled: "Coffee date set"
+    }[insight.discussion_status] || "";
+    const coffeeHtml = (insight.discussion_status === "discussion_requested" || insight.discussion_status === "scheduled")
+      ? `<div class="coffee-section">${insight.coffee_date
+          ? `<div class="coffee-date-display">☕ Coffee date: ${escapeHTML(insight.coffee_date)}</div>`
+          : `<div class="coffee-input-wrap">
+              <input class="coffee-input" id="cm-${insight.id}" placeholder="When? e.g. Saturday morning, July 5th" />
+              <button class="btn-coffee" onclick="setCoffeeDateMe('${insight.id}')">Set date →</button>
+             </div>`
+        }</div>`
+      : "";
+
+    return `<div class="insight-card-dashboard">
+      ${insight.domain_name ? `<div class="insight-domain">${escapeHTML(insight.domain_name)}</div>` : ""}
+      <div class="insight-card-text">${escapeHTML(insight.insight_text)}</div>
+      ${insight.season_tags.length ? `<div class="insight-card-seasons">${seasonBadges(insight.season_tags)}</div>` : ""}
+      <div class="insight-card-footer">
+        <span class="insight-status">${statusText}</span>
+      </div>
+      ${coffeeHtml}
+    </div>`;
+  }
+
+  async function requestDiscussion(insightId) {
+    try {
+      await fetch("/api/insights/" + insightId + "/discuss", { method: "POST" });
+      load();
+    } catch {}
+  }
+
+  async function setCoffeeDate(insightId) {
+    const input = document.getElementById("ci-" + insightId);
+    if (!input?.value?.trim()) return;
+    try {
+      await fetch("/api/insights/" + insightId + "/coffee", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ coffee_date: input.value.trim() })
+      });
+      load();
+    } catch {}
+  }
+
+  async function setCoffeeDateMe(insightId) {
+    const input = document.getElementById("cm-" + insightId);
+    if (!input?.value?.trim()) return;
+    try {
+      await fetch("/api/insights/" + insightId + "/coffee", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ coffee_date: input.value.trim() })
+      });
+      load();
+    } catch {}
   }
 
   load();
