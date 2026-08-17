@@ -289,6 +289,76 @@ This shapes: architecture, onboarding flow, permissions model, and pricing strat
 
 ---
 
+# Voice Strategy
+
+## Philosophy
+
+The voice experience in 7 Seasons should feel intentional, not constant. The goal is not to have the founder narrate the application — it is to build trust, familiarity, and emotional connection at the moments that matter most. Users should recognize that certain moments carry greater significance because they hear the founder's voice.
+
+**Guiding Principle:** Reserve the founder's voice for moments of significance. Routine coaching should feel helpful. Milestones should feel personal.
+
+---
+
+## Two-Voice Architecture
+
+### Founder Voice (Sydney)
+
+The cloned founder voice is reserved for high-significance touchpoints where presence and personal connection matter:
+
+- Initial onboarding and welcome experience
+- Explaining the vision and purpose of 7 Seasons
+- Transitioning a couple between life seasons
+- Major milestone celebrations
+- Difficult conversations requiring empathy
+- Premium educational lessons
+- Special holiday and seasonal messages
+- Annual relationship reflections
+- Feature introductions from the founder
+
+These messages should be intentionally scripted and stored as reusable audio assets whenever possible.
+
+### AI Coach Voice
+
+A high-quality ElevenLabs voice represents the AI Coach — not the founder. This voice handles the day-to-day relationship work:
+
+- Daily coaching and encouragement
+- Q&A and recommendations
+- Reports and assessments
+- Habit tracking and routine motivation
+- Dynamic, responsive conversations
+
+The distinction matters: the AI Coach is the system's ongoing presence. The founder is a recognizable guide who appears at pivotal moments.
+
+---
+
+## Audio Architecture
+
+The storage-first principle keeps TTS costs low while maintaining production quality:
+
+1. Generate founder recordings once.
+2. Store the resulting audio files.
+3. Stream the stored audio rather than regenerating it.
+
+New founder audio is only generated when content changes or when a personalized message delivers exceptional value. AI Coach responses remain dynamic and generated on demand.
+
+---
+
+## Brand Philosophy
+
+The founder's voice should become a recognizable signature of the 7 Seasons experience — like a keynote speaker who addresses an audience at meaningful moments rather than every moment. This approach:
+
+- Preserves the authenticity and weight of the founder's voice
+- Increases perceived value by not overexposing it
+- Allows the AI Coach to handle day-to-day interactions at scale
+
+---
+
+## Future Vision
+
+As the platform grows, users may choose from multiple AI coaching voices. The founder's voice remains the consistent anchor — introducing major experiences, celebrating milestones, and framing the platform's vision. The result is an experience that scales without losing the human connection that differentiates 7 Seasons from every other relationship tool.
+
+---
+
 # Success Metric
 
 The primary objective is not matching people.

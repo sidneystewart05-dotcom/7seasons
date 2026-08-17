@@ -37,6 +37,69 @@ function generateId()         { return crypto.randomUUID(); }
 function generateInviteCode() { return crypto.randomBytes(3).toString("hex").toUpperCase(); }
 function messagesToText(msgs) { return msgs.map(m => `${m.role === "user" ? "Person" : "Seven"}: ${m.content}`).join("\n\n"); }
 
+// Mirrors the [B]/SEASONS: parsing done client-side in onboarding.html,
+// so "what Seven noticed" can be reconstructed from saved conversation text.
+function parseAssistantInsight(text) {
+  const bMatch = text.match(/\[B\]([\s\S]*?)(?=\[A\]|\[C\]|$)/);
+  if (!bMatch) return null;
+  const raw = bMatch[1].trim();
+  if (!raw) return null;
+
+  const seasonMatch = raw.match(/SEASONS:\s*(.+)$/m);
+  const seasonTags = [];
+  if (seasonMatch) {
+    const parts = seasonMatch[1].split(/,\s*(?=\d)/);
+    for (const part of parts) {
+      const numMatch = part.match(/(\d)/);
+      if (!numMatch) continue;
+      const num = parseInt(numMatch[1]);
+      if (num < 1 || num > 7) continue;
+      const noteMatch = part.match(/\(([^)]+)\)/);
+      const note = noteMatch ? noteMatch[1] : "";
+      const impact = note.toLowerCase().includes("strength") ? "strength" : "risk";
+      seasonTags.push({ num, note, impact });
+    }
+  }
+
+  const text_ = raw.replace(/\n?SEASONS:\s*.+$/m, "").trim();
+  if (!text_) return null;
+  return { text: text_, season_tags: seasonTags };
+}
+
+async function getAllInsightsForIndividual(individualId) {
+  const convs = await db.getAll(
+    "SELECT * FROM conversations WHERE individual_id = $1 ORDER BY domain_index ASC",
+    [individualId]
+  );
+  const sharedRows = await db.getAll(
+    "SELECT insight_text, domain_index FROM shared_insights WHERE shared_by = $1",
+    [individualId]
+  );
+  const sharedKeys = new Set(sharedRows.map(s => `${s.domain_index}::${s.insight_text}`));
+
+  const insights = [];
+  for (const conv of convs) {
+    const messages = JSON.parse(conv.messages || "[]");
+    let lastUserMessage = "";
+    let seq = 0;
+    for (const m of messages) {
+      if (m.role === "user") { lastUserMessage = m.content; continue; }
+      const parsed = parseAssistantInsight(m.content);
+      if (!parsed) continue;
+      insights.push({
+        id: `${conv.domain_index}-${seq++}`,
+        domain_index: conv.domain_index,
+        domain_name: DOMAINS[conv.domain_index]?.name || "Unknown Topic",
+        text: parsed.text,
+        season_tags: parsed.season_tags,
+        user_context: lastUserMessage,
+        shared: sharedKeys.has(`${conv.domain_index}::${parsed.text}`)
+      });
+    }
+  }
+  return insights;
+}
+
 async function getOrCreateConversation(individualId, domainIndex) {
   let conv = await db.getOne(
     "SELECT * FROM conversations WHERE individual_id = $1 AND domain_index = $2",
@@ -713,6 +776,16 @@ app.post("/api/premarital/complete", async (req, res) => {
   const { couple_id, session_num } = req.body;
   await db.run("UPDATE premarital_sessions SET completed = 1, completed_at = NOW() WHERE couple_id = $1 AND session_num = $2", [couple_id, parseInt(session_num)]);
   res.json({ success: true });
+});
+
+// ─── My Insights (full history, shared or not) ────────────────────────────────
+
+app.get("/api/insights/mine/:individual_id", async (req, res) => {
+  const individual = await db.getOne("SELECT * FROM individuals WHERE id = $1", [req.params.individual_id]);
+  if (!individual) return res.status(404).json({ error: "Individual not found" });
+
+  const insights = await getAllInsightsForIndividual(req.params.individual_id);
+  res.json({ insights, domains_total: DOMAINS.length });
 });
 
 // ─── Shared Insights ──────────────────────────────────────────────────────────

@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Insights · 7 Seasons</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --navy: #1C2B3A; --slate: #2D3F50; --gold: #C4963A;
+      --cream: #FAF8F4; --warm-gray: #8C8178; --text: #2A2A2A; --border: #E0D9D0;
+    }
+    body { font-family: "Inter", sans-serif; background: var(--cream); color: var(--text); min-height: 100vh; }
+
+    .topbar {
+      background: white; border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between;
+    }
+    .logo { font-family: "Cormorant Garamond", serif; font-size: 1.25rem; font-weight: 600; color: var(--navy); }
+    .logo span { color: var(--gold); }
+    .topbar-nav { display: flex; gap: 1.5rem; align-items: center; }
+    .topbar-nav a { font-size: 0.85rem; color: var(--warm-gray); text-decoration: none; font-weight: 500; }
+    .topbar-nav a:hover { color: var(--navy); }
+    .nav-name { font-size: 0.85rem; color: var(--navy); font-weight: 500; }
+
+    .container { max-width: 760px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+
+    .page-header { margin-bottom: 2.25rem; }
+    .page-header h1 { font-family: "Cormorant Garamond", serif; font-size: 2.25rem; color: var(--navy); margin-bottom: 0.5rem; }
+    .page-header p { color: var(--warm-gray); font-size: 0.95rem; line-height: 1.6; }
+
+    .loading, .empty-state { text-align: center; padding: 4rem 1.5rem; color: var(--warm-gray); font-size: 0.9rem; }
+    .empty-state .es-icon { font-size: 1.75rem; color: var(--gold); margin-bottom: 1rem; }
+    .empty-state a { color: var(--gold); text-decoration: underline; }
+
+    .domain-group { margin-bottom: 2.25rem; }
+    .domain-group-title {
+      font-size: 0.72rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--warm-gray); margin-bottom: 0.9rem; padding-bottom: 0.6rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .ir-card {
+      background: white; border: 1px solid #EDE5D0; border-radius: 12px;
+      padding: 1.25rem 1.4rem; margin-bottom: 0.85rem;
+    }
+    .ir-text { font-size: 0.9rem; line-height: 1.75; color: #4A3F30; margin-bottom: 0.9rem; }
+    .ir-seasons { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.9rem; align-items: center; }
+    .ir-seasons-label {
+      font-size: 0.68rem; font-weight: 500; color: var(--warm-gray);
+      letter-spacing: 0.07em; text-transform: uppercase; margin-right: 0.2rem;
+    }
+    .season-badge {
+      font-size: 0.7rem; font-weight: 500; padding: 0.25rem 0.7rem;
+      border-radius: 100px; letter-spacing: 0.02em;
+    }
+    .season-badge.risk { background: #FDF3E7; border: 1px solid #E8C080; color: #8B6020; }
+    .season-badge.strength { background: #F0F5F0; border: 1px solid #9DBD9D; color: #3A6040; }
+
+    .ir-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; }
+    .btn-ir-deeper {
+      background: none; border: 1.5px solid var(--gold); color: var(--gold);
+      border-radius: 8px; padding: 0.38rem 0.9rem; font-family: "Inter", sans-serif;
+      font-size: 0.76rem; font-weight: 500; cursor: pointer; transition: all 0.2s;
+    }
+    .btn-ir-deeper:hover { background: var(--gold); color: white; }
+    .btn-ir-deeper:disabled { opacity: 0.5; cursor: default; }
+    .btn-ir-share {
+      background: var(--navy); color: white; border: none;
+      border-radius: 8px; padding: 0.38rem 0.9rem; font-family: "Inter", sans-serif;
+      font-size: 0.76rem; font-weight: 500; cursor: pointer; transition: background 0.2s;
+    }
+    .btn-ir-share:hover { background: var(--slate); }
+    .btn-ir-share:disabled { background: #9DBD9D; cursor: default; }
+    .shared-tag {
+      font-size: 0.75rem; color: #3A6040; font-weight: 500;
+    }
+    .ir-deep-result {
+      margin-top: 0.9rem; font-size: 0.85rem; line-height: 1.75;
+      color: var(--text); border-top: 1px solid #EDE5D0; padding-top: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">7 <span>Seasons</span></div>
+  <div class="topbar-nav">
+    <a href="/dashboard.html">Dashboard</a>
+    <span class="nav-name" id="nav-name"></span>
+    <button onclick="logout()" style="background:none;border:none;font-family:'Inter',sans-serif;font-size:0.82rem;color:var(--warm-gray);cursor:pointer;">Sign out</button>
+  </div>
+</div>
+
+<div class="container" id="main-content">
+  <div class="loading">Loading your insights...</div>
+</div>
+
+<script>
+  let individualId = localStorage.getItem("7s_individual_id");
+  let partnerName = null;
+  const SEASON_NAMES = ["", "Engagement & Newlyweds", "Building a Home", "Young Children", "School-Age Children", "Teenagers", "Empty Nest", "Legacy & Retirement"];
+
+  async function checkAuth() {
+    try {
+      const res = await fetch("/api/auth/me");
+      if (!res.ok) { window.location.href = "/login.html"; return false; }
+      const user = await res.json();
+      individualId = user.individual_id;
+      localStorage.setItem("7s_individual_id", user.individual_id);
+      localStorage.setItem("7s_couple_id",     user.couple_id);
+      localStorage.setItem("7s_name",          user.name);
+      document.getElementById("nav-name").textContent = user.name;
+      return true;
+    } catch { window.location.href = "/login.html"; return false; }
+  }
+
+  async function logout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    localStorage.clear();
+    window.location.href = "/login.html";
+  }
+
+  function escapeHTML(t) {
+    return (t || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  async function load() {
+    if (!await checkAuth()) return;
+
+    try {
+      const meRes = await fetch("/api/me/" + individualId);
+      const me = await meRes.json();
+      partnerName = me.partner?.name || null;
+    } catch {}
+
+    const res = await fetch("/api/insights/mine/" + individualId);
+    const data = await res.json();
+    render(data.insights || []);
+  }
+
+  function render(insights) {
+    const el = document.getElementById("main-content");
+
+    if (insights.length === 0) {
+      el.innerHTML = `
+        <div class="page-header">
+          <h1>What Seven has noticed.</h1>
+          <p>Every insight from your discovery conversations, gathered in one place.</p>
+        </div>
+        <div class="empty-state">
+          <div class="es-icon">✦</div>
+          Nothing here yet — Seven will start noticing things as you talk through your <a href="/onboarding.html">discovery topics</a>.
+        </div>`;
+      return;
+    }
+
+    // Group by domain, preserving the order insights were generated in.
+    const groups = [];
+    const groupByIndex = new Map();
+    insights.forEach(insight => {
+      if (!groupByIndex.has(insight.domain_index)) {
+        const group = { domain_index: insight.domain_index, domain_name: insight.domain_name, items: [] };
+        groupByIndex.set(insight.domain_index, group);
+        groups.push(group);
+      }
+      groupByIndex.get(insight.domain_index).items.push(insight);
+    });
+
+    el.innerHTML = `
+      <div class="page-header">
+        <h1>What Seven has noticed.</h1>
+        <p>Every insight from your discovery conversations, gathered in one place.</p>
+      </div>
+      <div id="groups"></div>`;
+
+    const groupsEl = document.getElementById("groups");
+    groups.forEach(group => {
+      const groupEl = document.createElement("div");
+      groupEl.className = "domain-group";
+
+      const title = document.createElement("div");
+      title.className = "domain-group-title";
+      title.textContent = group.domain_name;
+      groupEl.appendChild(title);
+
+      group.items.forEach(insight => {
+        groupEl.appendChild(buildCard(insight));
+      });
+
+      groupsEl.appendChild(groupEl);
+    });
+  }
+
+  function buildCard(insight) {
+    const badges = insight.season_tags.map(tag => {
+      const name = SEASON_NAMES[tag.num] || ("Season " + tag.num);
+      return `<span class="season-badge ${tag.impact}">Season ${tag.num} · ${escapeHTML(name)} · ${tag.impact}</span>`;
+    }).join("");
+
+    const card = document.createElement("div");
+    card.className = "ir-card";
+    card.innerHTML = `
+      <div class="ir-text">${escapeHTML(insight.text)}</div>
+      ${insight.season_tags.length > 0 ? `<div class="ir-seasons"><span class="ir-seasons-label">Season impact</span>${badges}</div>` : ""}
+      <div class="ir-actions">
+        <button class="btn-ir-deeper">What might this mean for me? →</button>
+        ${insight.shared
+          ? `<span class="shared-tag">Shared with ${escapeHTML(partnerName || "partner")} ✓</span>`
+          : (partnerName ? `<button class="btn-ir-share">Share with ${escapeHTML(partnerName)} →</button>` : "")}
+      </div>
+      <div class="ir-deep-result" style="display:none"></div>`;
+
+    card.querySelector(".btn-ir-deeper").addEventListener("click", (e) => deepenInsight(insight, card, e.target));
+    const shareBtn = card.querySelector(".btn-ir-share");
+    if (shareBtn) shareBtn.addEventListener("click", (e) => shareInsight(insight, e.target));
+
+    return card;
+  }
+
+  async function deepenInsight(insight, card, btn) {
+    const deepDiv = card.querySelector(".ir-deep-result");
+    btn.disabled = true;
+    btn.textContent = "Thinking...";
+
+    try {
+      const res = await fetch("/api/insight/deepen", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          individual_id: individualId,
+          insight: insight.text,
+          user_response: insight.user_context,
+          domain_index: insight.domain_index
+        })
+      });
+      const data = await res.json();
+      if (data.analysis) {
+        deepDiv.innerHTML = escapeHTML(data.analysis).replace(/\n\n/g, "<br><br>");
+        deepDiv.style.display = "block";
+        btn.style.display = "none";
+      } else {
+        btn.textContent = "What might this mean for me? →";
+        btn.disabled = false;
+      }
+    } catch {
+      btn.textContent = "What might this mean for me? →";
+      btn.disabled = false;
+    }
+  }
+
+  async function shareInsight(insight, btn) {
+    btn.disabled = true;
+    btn.textContent = "Sharing...";
+    try {
+      const res = await fetch("/api/insights/share", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          individual_id: individualId,
+          insight_text: insight.text,
+          domain_index: insight.domain_index,
+          season_tags: insight.season_tags
+        })
+      });
+      if (res.ok) {
+        btn.outerHTML = `<span class="shared-tag">Shared with ${escapeHTML(partnerName || "partner")} ✓</span>`;
+      } else {
+        btn.textContent = "Share with " + (partnerName || "Partner") + " →";
+        btn.disabled = false;
+      }
+    } catch {
+      btn.textContent = "Share with " + (partnerName || "Partner") + " →";
+      btn.disabled = false;
+    }
+  }
+
+  load();
+</script>
+</body>
+</html>
