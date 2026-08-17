@@ -273,7 +273,7 @@
   function closeSession() { window.location.href = "/premarital.html"; }
 
   // ── Voice ──────────────────────────────────────────────────────────────────
-  let recognition = null, micShouldBeActive = false;
+  let recognition = null, micShouldBeActive = false, micBaseText = "";
 
   function setupMic() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -281,20 +281,20 @@
     recognition = new SR();
     recognition.continuous = true; recognition.interimResults = true; recognition.lang = "en-US";
     recognition.onstart = () => { document.getElementById("mic-btn").classList.add("listening"); document.getElementById("listening-label").classList.add("visible"); };
-    recognition.onresult = (e) => { const t = Array.from(e.results).map(r => r[0].transcript).join(""); const ta = document.getElementById("msg-input"); ta.value = t; ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight,140)+"px"; };
+    recognition.onresult = (e) => { const t = Array.from(e.results).map(r => r[0].transcript).join(""); const ta = document.getElementById("msg-input"); ta.value = micBaseText ? micBaseText + " " + t : t; ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight,140)+"px"; };
     recognition.onend = () => {
-      if (micShouldBeActive && !isStreaming) { try { recognition.start(); } catch {} return; }
+      if (micShouldBeActive && !isStreaming) { micBaseText = document.getElementById("msg-input").value.trim(); try { recognition.start(); } catch {} return; }
       document.getElementById("mic-btn").classList.remove("listening"); document.getElementById("listening-label").classList.remove("visible");
       const text = document.getElementById("msg-input").value.trim();
       if (text && !isStreaming) sendMessage();
     };
-    recognition.onerror = (e) => { if (e.error === "aborted" || (e.error === "no-speech" && micShouldBeActive)) { try { if(micShouldBeActive) recognition.start(); } catch {} return; } micShouldBeActive = false; document.getElementById("mic-btn").classList.remove("listening"); document.getElementById("listening-label").classList.remove("visible"); };
+    recognition.onerror = (e) => { if (e.error === "aborted" || (e.error === "no-speech" && micShouldBeActive)) { micBaseText = document.getElementById("msg-input").value.trim(); try { if(micShouldBeActive) recognition.start(); } catch {} return; } micShouldBeActive = false; document.getElementById("mic-btn").classList.remove("listening"); document.getElementById("listening-label").classList.remove("visible"); };
   }
 
   function toggleMic() {
     if (!recognition || isStreaming) return;
     if (micShouldBeActive) { micShouldBeActive = false; recognition.stop(); }
-    else { micShouldBeActive = true; try { recognition.start(); } catch {} }
+    else { micShouldBeActive = true; micBaseText = document.getElementById("msg-input").value.trim(); try { recognition.start(); } catch {} }
   }
 
   // ── TTS ───────────────────────────────────────────────────────────────────

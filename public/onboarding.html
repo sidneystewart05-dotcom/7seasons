@@ -539,20 +539,20 @@
 <!-- Chat area -->
 <div class="chat-area" id="chat-area">
   <!-- messages injected here -->
-</div>
 
-<!-- "Ready to move on" hint -->
-<div class="ready-hint" id="ready-hint">
-  Seven has finished exploring this topic. &nbsp;
-  <button onclick="advanceDomain()">Move to the next topic →</button>
-  &nbsp;·&nbsp;
-  <button onclick="saveAndExit()">Save &amp; close session</button>
-</div>
+  <!-- "Ready to move on" hint -->
+  <div class="ready-hint" id="ready-hint">
+    Seven has finished exploring this topic. &nbsp;
+    <button onclick="advanceDomain()">Move to the next topic →</button>
+    &nbsp;·&nbsp;
+    <button onclick="saveAndExit()">Save &amp; close session</button>
+  </div>
 
-<!-- Insights reveal (shown at end of each domain) -->
-<div class="insights-reveal" id="insights-reveal" style="display:none">
-  <div class="ir-header">✦ What Seven noticed in this conversation</div>
-  <div id="ir-cards"></div>
+  <!-- Insights reveal (shown at end of each domain) -->
+  <div class="insights-reveal" id="insights-reveal" style="display:none">
+    <div class="ir-header">✦ What Seven noticed in this conversation</div>
+    <div id="ir-cards"></div>
+  </div>
 </div>
 
 <!-- Input -->
@@ -724,6 +724,14 @@
     area.scrollTop = area.scrollHeight;
   }
 
+  // ready-hint/insights-reveal live inside chat-area so they scroll with it,
+  // but must stay pinned below all messages — insert new content above them.
+  function appendToChat(el) {
+    const area = document.getElementById("chat-area");
+    const anchor = document.getElementById("ready-hint");
+    area.insertBefore(el, anchor);
+  }
+
   function escapeHTML(t) {
     return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   }
@@ -744,7 +752,6 @@
   }
 
   function addBubble(role, text) {
-    const area = document.getElementById("chat-area");
     const wrap = document.createElement("div");
     wrap.className = "bubble-wrap " + role;
 
@@ -768,7 +775,7 @@
       wrap.appendChild(bubble);
     }
 
-    area.appendChild(wrap);
+    appendToChat(wrap);
     scrollToBottom();
     // Return the main bubble element for streaming updates
     return wrap.querySelector(".bubble");
@@ -893,7 +900,6 @@
   }
 
   function addTypingIndicator() {
-    const area = document.getElementById("chat-area");
     const wrap = document.createElement("div");
     wrap.className = "bubble-wrap ai";
     wrap.id = "typing-wrap";
@@ -909,7 +915,7 @@
 
     wrap.appendChild(avatar);
     wrap.appendChild(bubble);
-    area.appendChild(wrap);
+    appendToChat(wrap);
     scrollToBottom();
     return wrap;
   }
@@ -1084,11 +1090,10 @@
       }
 
       // Add a subtle divider
-      const area = document.getElementById("chat-area");
       const divider = document.createElement("div");
       divider.style.cssText = "text-align:center; font-size:0.75rem; color:#8C8178; padding:0.5rem 0; letter-spacing:0.1em; text-transform:uppercase;";
       divider.textContent = "· · ·";
-      area.appendChild(divider);
+      appendToChat(divider);
 
       currentDomain = data.next_domain;
       updateProgress();
@@ -1177,6 +1182,7 @@
   let recognition = null;
   let micActive = false;
   let micShouldBeActive = false;
+  let micBaseText = "";
 
   function setupSpeechRecognition() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -1198,7 +1204,7 @@
     recognition.onresult = (e) => {
       const transcript = Array.from(e.results).map(r => r[0].transcript).join("");
       const ta = document.getElementById("msg-input");
-      ta.value = transcript;
+      ta.value = micBaseText ? micBaseText + " " + transcript : transcript;
       ta.style.height = "auto";
       ta.style.height = Math.min(ta.scrollHeight, 140) + "px";
     };
@@ -1207,6 +1213,7 @@
       micActive = false;
       // If the user hasn't stopped it and we're not streaming, restart automatically
       if (micShouldBeActive && !isStreaming) {
+        micBaseText = document.getElementById("msg-input").value.trim();
         try { recognition.start(); } catch {}
         return;
       }
@@ -1220,6 +1227,7 @@
       if (e.error === "aborted") return;
       if (e.error === "no-speech" && micShouldBeActive && !isStreaming) {
         // Restart on no-speech so long pauses don't kill it
+        micBaseText = document.getElementById("msg-input").value.trim();
         try { recognition.start(); } catch {}
         return;
       }
@@ -1237,6 +1245,7 @@
       recognition.stop();
     } else {
       micShouldBeActive = true;
+      micBaseText = document.getElementById("msg-input").value.trim();
       speechSynthesis.cancel();
       try { recognition.start(); } catch {}
     }

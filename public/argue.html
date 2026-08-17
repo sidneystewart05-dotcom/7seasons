@@ -661,6 +661,7 @@
   // ── Voice Input ────────────────────────────────────────────────────────────
   let recognition      = null;
   let micShouldBeActive = false;
+  let micBaseText      = "";
 
   function setupSpeechRecognition() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -677,12 +678,16 @@
     recognition.onresult = (e) => {
       const t  = Array.from(e.results).map(r => r[0].transcript).join("");
       const ta = document.getElementById("msg-input");
-      ta.value = t;
+      ta.value = micBaseText ? micBaseText + " " + t : t;
       ta.style.height = "auto";
       ta.style.height = Math.min(ta.scrollHeight, 140) + "px";
     };
     recognition.onend = () => {
-      if (micShouldBeActive && !isStreaming) { try { recognition.start(); } catch {} return; }
+      if (micShouldBeActive && !isStreaming) {
+        micBaseText = document.getElementById("msg-input").value.trim();
+        try { recognition.start(); } catch {}
+        return;
+      }
       document.getElementById("mic-btn").classList.remove("listening");
       document.getElementById("listening-label").classList.remove("visible");
       const text = document.getElementById("msg-input").value.trim();
@@ -690,7 +695,11 @@
     };
     recognition.onerror = (e) => {
       if (e.error === "aborted") return;
-      if (e.error === "no-speech" && micShouldBeActive && !isStreaming) { try { recognition.start(); } catch {} return; }
+      if (e.error === "no-speech" && micShouldBeActive && !isStreaming) {
+        micBaseText = document.getElementById("msg-input").value.trim();
+        try { recognition.start(); } catch {}
+        return;
+      }
       micShouldBeActive = false;
       document.getElementById("mic-btn").classList.remove("listening");
       document.getElementById("listening-label").classList.remove("visible");
@@ -700,7 +709,11 @@
   function toggleMic() {
     if (!recognition || isStreaming) return;
     if (micShouldBeActive) { micShouldBeActive = false; recognition.stop(); }
-    else { micShouldBeActive = true; try { recognition.start(); } catch {} }
+    else {
+      micShouldBeActive = true;
+      micBaseText = document.getElementById("msg-input").value.trim();
+      try { recognition.start(); } catch {}
+    }
   }
 
   async function checkAuth() {
