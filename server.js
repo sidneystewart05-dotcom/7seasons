@@ -817,24 +817,6 @@ app.post("/api/insights/share", async (req, res) => {
   res.json({ id, success: true });
 });
 
-// TEMPORARY one-time cleanup for duplicate shared_insights rows created
-// before /api/insights/share was made idempotent above. Keeps whichever row
-// in each duplicate group was already read (if any), else the earliest.
-// Remove this route once it's been run.
-app.post("/api/insights/dedupe-shared", async (req, res) => {
-  const dupes = await db.getAll(`
-    SELECT id FROM (
-      SELECT id, ROW_NUMBER() OVER (
-        PARTITION BY couple_id, shared_by, domain_index, insight_text
-        ORDER BY (read_at IS NULL) ASC, shared_at ASC, id ASC
-      ) AS rn
-      FROM shared_insights
-    ) ranked WHERE rn > 1
-  `);
-  for (const d of dupes) await db.run("DELETE FROM shared_insights WHERE id = $1", [d.id]);
-  res.json({ removed: dupes.length, ids: dupes.map(d => d.id) });
-});
-
 app.get("/api/insights/:couple_id", async (req, res) => {
   const viewer_id = req.query.viewer_id;
   const rows = await db.getAll(
