@@ -797,12 +797,42 @@ app.post("/api/insights/share", async (req, res) => {
   const individual = await db.getOne("SELECT * FROM individuals WHERE id = $1", [individual_id]);
   if (!individual) return res.status(404).json({ error: "Individual not found" });
 
+  const trimmedText = insight_text.trim();
+
+  // Idempotent: a double-click or retry on the same insight should return
+  // the existing share, not create a second identical card on the dashboard.
+  const existing = await db.getOne(
+    `SELECT id FROM shared_insights
+     WHERE couple_id = $1 AND shared_by = $2
+       AND domain_index IS NOT DISTINCT FROM $3 AND insight_text = $4`,
+    [individual.couple_id, individual_id, domain_index ?? null, trimmedText]
+  );
+  if (existing) return res.json({ id: existing.id, success: true, already_shared: true });
+
   const id = generateId();
   await db.run(
     "INSERT INTO shared_insights (id, couple_id, shared_by, domain_index, insight_text, season_tags) VALUES ($1,$2,$3,$4,$5,$6)",
-    [id, individual.couple_id, individual_id, domain_index ?? null, insight_text.trim(), JSON.stringify(season_tags || [])]
+    [id, individual.couple_id, individual_id, domain_index ?? null, trimmedText, JSON.stringify(season_tags || [])]
   );
   res.json({ id, success: true });
+});
+
+// TEMPORARY one-time cleanup for duplicate shared_insights rows created
+// before /api/insights/share was made idempotent above. Keeps whichever row
+// in each duplicate group was already read (if any), else the earliest.
+// Remove this route once it's been run.
+app.post("/api/insights/dedupe-shared", async (req, res) => {
+  const dupes = await db.getAll(`
+    SELECT id FROM (
+      SELECT id, ROW_NUMBER() OVER (
+        PARTITION BY couple_id, shared_by, domain_index, insight_text
+        ORDER BY (read_at IS NULL) ASC, shared_at ASC, id ASC
+      ) AS rn
+      FROM shared_insights
+    ) ranked WHERE rn > 1
+  `);
+  for (const d of dupes) await db.run("DELETE FROM shared_insights WHERE id = $1", [d.id]);
+  res.json({ removed: dupes.length, ids: dupes.map(d => d.id) });
 });
 
 app.get("/api/insights/:couple_id", async (req, res) => {
