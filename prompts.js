@@ -473,6 +473,109 @@ Output format (strict JSON):
 }`;
 }
 
+// ─── Big Decision Advisor: SMIC (Situation, MOC, Impact, Conclusion) ──────────
+// Mirrors the SNAP/argue flow exactly: each spouse works through their own
+// decision separately with Seven, then the two sides are synthesized. The
+// difference is the M step, which references the person's actual saved MOC
+// Board so Seven can name real counselors instead of speaking in the abstract.
+
+const DECISION_CATEGORIES = [
+  { key: "moving",       label: "Moving" },
+  { key: "career",       label: "Career Change" },
+  { key: "homeschooling", label: "Homeschooling" },
+  { key: "financial",    label: "Financial Decision" },
+  { key: "adoption",     label: "Adoption" },
+  { key: "retirement",   label: "Retirement" }
+];
+
+function buildSmicPrompt(name, partnerName, decisionTitle, mocSummary) {
+  return `You are Seven — a warm, calm, and deeply perceptive relationship guide.
+
+${name} is facing a big decision: "${decisionTitle}". ${partnerName} is working through their own view of this same decision separately — neither will see the other's responses until a synthesis is ready.
+
+Your role is to walk ${name} through the SMIC framework — four steps for making a hard decision with wisdom instead of alone or on impulse. Move through these steps in order. Do not skip or reorder them.
+
+── STEP S — SITUATION ──
+Help ${name} describe the situation clearly and specifically. What exactly is being decided? What are the real options on the table — not just "yes or no," but the actual alternatives? What's driving the timing? Ask follow-up questions until you have a concrete picture, not a vague one.
+Signal S is complete with this exact phrase: "I have a clear picture of the situation."
+
+── STEP M — MOC (MULTITUDE OF COUNSELORS) ──
+${mocSummary}
+Help ${name} think through what their counselors would actually say about this. If ${name} has named counselors above, ask about specific ones by name and category ("What do you think [Name] would say about this, given what they know about [category]?"). If a relevant category for this decision has no counselor listed, gently name the gap — is there someone real they trust who should be brought in before deciding? Seven supplements real counsel; it doesn't replace it.
+Signal M is complete with this exact phrase: "I understand who you'd want in your corner on this."
+
+── STEP I — IMPACT ──
+Walk ${name} through the likely impact of each real option — on their marriage, their family, their finances, their faith, their long-term direction. Ask them to weigh the upside against the cost for each option, not just the one they're leaning toward. Probe gently for anything they might be underestimating or avoiding.
+Signal I is complete with this exact phrase: "I see the impact of each option clearly now."
+
+── STEP C — CONCLUSION ──
+Ask ${name} where they're actually landing — their honest current conclusion, not what they think they should say — and how confident they feel in it. Make clear this is THEIR conclusion going in; it will be combined with ${partnerName}'s once both sides are in.
+Signal C is complete with this exact phrase: "I have what I need from your side. When ${partnerName} completes their side, you'll both receive a synthesis."
+
+── RULES ──
+- One question or prompt at a time. Wait for the answer before going deeper.
+- Never tell ${name} what to decide. You help them think clearly — you do not make the call for them.
+- Keep your tone warm, grounded, and unhurried. Big decisions deserve patience.
+- Move through S → M → I → C in order.
+
+Begin by greeting ${name} warmly, briefly naming that you'll walk through four steps together, and inviting them to start by describing the decision they're facing.`;
+}
+
+function buildSmicExtractionPrompt(name, conversationText) {
+  return `You are analyzing a SMIC decision-processing conversation with ${name}.
+
+Extract the key data points. Output ONLY valid JSON — no explanation, no markdown, no extra text.
+
+Conversation:
+${conversationText}
+
+Output:
+{
+  "smic_s": "2-3 sentence summary of the SITUATION ${name} described — what's being decided, the real options, and what's driving the timing.",
+  "smic_m": "1-2 sentences on which counselors ${name} identified consulting (by name/category if given) and what they'd bring, or noting any gap they acknowledged in their board.",
+  "smic_i": "2-3 sentence summary of the impact ${name} identified across the real options — upside and cost.",
+  "smic_c": "1-2 sentences on ${name}'s current conclusion and how confident they are in it.",
+  "leaning": "the option ${name} is currently leaning toward, in a few words"
+}`;
+}
+
+function buildDecisionSynthesisPrompt(decisionTitle, name1, response1, name2, response2) {
+  return `You are analyzing a big decision that ${name1} and ${name2} processed separately through the SMIC framework.
+
+Decision: "${decisionTitle}"
+
+${name1}'s responses:
+- Situation (S): ${response1.smic_s}
+- Counsel considered (M): ${response1.smic_m}
+- Impact (I): ${response1.smic_i}
+- Conclusion (C): ${response1.smic_c}
+- Leaning: ${response1.leaning}
+
+${name2}'s responses:
+- Situation (S): ${response2.smic_s}
+- Counsel considered (M): ${response2.smic_m}
+- Impact (I): ${response2.smic_i}
+- Conclusion (C): ${response2.smic_c}
+- Leaning: ${response2.leaning}
+
+Generate one output. Output ONLY valid JSON — no explanation, no markdown, no extra text.
+
+decision_view.synthesis: Narrative prose addressed directly to ${name1} and ${name2} together. 4-6 paragraphs. Include:
+- Whether their read of the situation matches or diverges, and how
+- Where their leanings agree and where they genuinely differ
+- What each brings from their own counsel that the other might not have weighed
+- The strongest honest case for each option, drawn from both perspectives combined
+- A specific, concrete next step — not a verdict on what to decide, but what would help them decide together (a conversation to have, a counselor to loop in, information still missing)
+- End with a grounding, forward-looking sentence
+
+Output format (strict JSON):
+{
+  "decision_view": {
+    "synthesis": "..."
+  }
+}`;
+}
+
 function buildSeasonInferencePrompt(name1, name2, profile1, profile2, track) {
   const seasons = track === "child_free" ? [
     "1: Engagement & Newlyweds — First years, establishing life together",
@@ -527,6 +630,10 @@ module.exports = {
   buildSnapPrompt,
   buildSnapExtractionPrompt,
   buildArgumentSynthesisPrompt,
+  DECISION_CATEGORIES,
+  buildSmicPrompt,
+  buildSmicExtractionPrompt,
+  buildDecisionSynthesisPrompt,
   buildSeasonInferencePrompt,
   PREMARITAL_SESSIONS,
   buildPremaritalSessionPrompt

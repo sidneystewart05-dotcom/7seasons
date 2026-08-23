@@ -129,6 +129,41 @@ async function initSchema() {
       UNIQUE(couple_id, owner_key, category, slot)
     );
 
+    -- Big Decision Advisor, step 2: the SMIC decision flow itself. Mirrors
+    -- arguments/argument_responses/argument_synthesis exactly (separate
+    -- processing, then synthesis), but a decision has a title/category and
+    -- couples can have more than one over time, browsable as history.
+    CREATE TABLE IF NOT EXISTS decisions (
+      id TEXT PRIMARY KEY,
+      couple_id TEXT NOT NULL,
+      title TEXT NOT NULL,
+      category TEXT,
+      status TEXT DEFAULT 'open',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS decision_responses (
+      id TEXT PRIMARY KEY,
+      decision_id TEXT NOT NULL,
+      individual_id TEXT NOT NULL,
+      messages TEXT DEFAULT '[]',
+      smic_s TEXT DEFAULT '',
+      smic_m TEXT DEFAULT '',
+      smic_i TEXT DEFAULT '',
+      smic_c TEXT DEFAULT '',
+      leaning TEXT DEFAULT '',
+      completed INTEGER DEFAULT 0,
+      submitted_at TIMESTAMPTZ,
+      UNIQUE(decision_id, individual_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS decision_synthesis (
+      id SERIAL PRIMARY KEY,
+      decision_id TEXT UNIQUE NOT NULL,
+      couple_view TEXT DEFAULT '{}',
+      generated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
     CREATE TABLE IF NOT EXISTS shared_insights (
       id TEXT PRIMARY KEY,
       couple_id TEXT NOT NULL,

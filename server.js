@@ -17,6 +17,10 @@ const {
   buildSnapPrompt,
   buildSnapExtractionPrompt,
   buildArgumentSynthesisPrompt,
+  DECISION_CATEGORIES,
+  buildSmicPrompt,
+  buildSmicExtractionPrompt,
+  buildDecisionSynthesisPrompt,
   buildSeasonInferencePrompt,
   PREMARITAL_SESSIONS,
   buildPremaritalSessionPrompt
@@ -98,6 +102,28 @@ async function getAllInsightsForIndividual(individualId) {
     }
   }
   return insights;
+}
+
+// Formats a person's saved MOC Board (their own + the couple's shared board)
+// into text Seven can reference by name during the M step of SMIC, instead
+// of talking about counselors in the abstract.
+async function getMocSummaryForIndividual(coupleId, individualId) {
+  const rows = await db.getAll(
+    "SELECT owner_key, category, name, notes FROM moc_board_entries WHERE couple_id = $1 AND owner_key IN ($2, 'shared') AND name != ''",
+    [coupleId, individualId]
+  );
+  if (!rows.length) {
+    return "This person hasn't filled in their MOC Board yet. Don't assume they have no one — ask who they'd actually turn to in each relevant area (spiritual, financial, relational, professional) as part of this step.";
+  }
+  const byCategory = {};
+  for (const r of rows) {
+    (byCategory[r.category] = byCategory[r.category] || []).push(r);
+  }
+  const lines = Object.entries(byCategory).map(([cat, entries]) => {
+    const names = entries.map(e => e.name + (e.notes ? ` (${e.notes})` : "")).join(", ");
+    return `- ${cat}: ${names}`;
+  });
+  return `Here is this person's MOC Board (trusted counselors already on file):\n${lines.join("\n")}`;
 }
 
 async function getOrCreateConversation(individualId, domainIndex) {
@@ -631,6 +657,206 @@ app.get("/api/argue/:argument_id/counselor", async (req, res) => {
   }));
 
   res.json({ argument_id: req.params.argument_id, counselor_view: JSON.parse(synthesis.counselor_view), responses: enriched, generated_at: synthesis.generated_at });
+});
+
+// ─── Big Decision Advisor: SMIC ────────────────────────────────────────────────
+// Mirrors the We're Arguing flow exactly (separate processing → synthesis),
+// with two additions: a title/category up front, and a browsable history
+// since a couple can face many big decisions over the years, not just one.
+
+app.get("/api/decisions/:couple_id", async (req, res) => {
+  const rows = await db.getAll(
+    "SELECT id, title, category, status, created_at FROM decisions WHERE couple_id = $1 ORDER BY created_at DESC",
+    [req.params.couple_id]
+  );
+  res.json({ categories: DECISION_CATEGORIES, decisions: rows });
+});
+
+app.get("/api/decide/status/:individual_id", async (req, res) => {
+  const individual = await db.getOne("SELECT * FROM individuals WHERE id = $1", [req.params.individual_id]);
+  if (!individual) return res.status(404).json({ error: "Not found" });
+
+  const members = await db.getAll("SELECT * FROM individuals WHERE couple_id = $1", [individual.couple_id]);
+  const partner  = members.find(m => m.id !== individual.id);
+  if (!partner) return res.json({ state: "no_partner" });
+
+  const activeDecision = await db.getOne(
+    "SELECT * FROM decisions WHERE couple_id = $1 AND status IN ('open','synthesis_pending') ORDER BY created_at DESC LIMIT 1",
+    [individual.couple_id]
+  );
+  if (!activeDecision) return res.json({ state: "no_decision", partner: { name: partner.name } });
+
+  if (activeDecision.status === "complete") {
+    const synthesis = await db.getOne("SELECT * FROM decision_synthesis WHERE decision_id = $1", [activeDecision.id]);
+    return res.json({ state: "synthesis", decision_id: activeDecision.id, title: activeDecision.title, decision_view: JSON.parse(synthesis.couple_view), partner: { name: partner.name } });
+  }
+
+  const myResponse = await db.getOne("SELECT * FROM decision_responses WHERE decision_id = $1 AND individual_id = $2", [activeDecision.id, individual.id]);
+  if (!myResponse || !myResponse.completed) {
+    const messages = myResponse ? JSON.parse(myResponse.messages || "[]") : [];
+    return res.json({ state: "my_turn", decision_id: activeDecision.id, title: activeDecision.title, has_messages: messages.length > 0, partner: { name: partner.name } });
+  }
+  return res.json({ state: "waiting", decision_id: activeDecision.id, title: activeDecision.title, partner: { name: partner.name } });
+});
+
+app.post("/api/decide/start", async (req, res) => {
+  const { individual_id, title, category } = req.body;
+  if (!individual_id || !title?.trim()) return res.status(400).json({ error: "individual_id and title required" });
+
+  const individual = await db.getOne("SELECT * FROM individuals WHERE id = $1", [individual_id]);
+  if (!individual) return res.status(404).json({ error: "Not found" });
+
+  const members = await db.getAll("SELECT id FROM individuals WHERE couple_id = $1", [individual.couple_id]);
+  if (members.length < 2) return res.status(400).json({ error: "Partner has not joined yet" });
+
+  const existing = await db.getOne(
+    "SELECT * FROM decisions WHERE couple_id = $1 AND status IN ('open','synthesis_pending') ORDER BY created_at DESC LIMIT 1",
+    [individual.couple_id]
+  );
+  if (existing) return res.status(400).json({ error: "A decision is already in progress. Finish or wait for it to complete before starting a new one." });
+
+  const decision = await db.transaction(async (client) => {
+    const decId = generateId();
+    await client.query(
+      "INSERT INTO decisions (id, couple_id, title, category) VALUES ($1,$2,$3,$4)",
+      [decId, individual.couple_id, title.trim(), category || null]
+    );
+    await client.query("INSERT INTO decision_responses (id, decision_id, individual_id) VALUES ($1,$2,$3)", [generateId(), decId, individual_id]);
+    const created = await client.query("SELECT * FROM decisions WHERE id = $1", [decId]);
+    return created.rows[0];
+  });
+
+  res.json({ decision_id: decision.id, title: decision.title });
+});
+
+app.get("/api/decide/:decision_id/messages/:individual_id", async (req, res) => {
+  const resp = await db.getOne("SELECT * FROM decision_responses WHERE decision_id = $1 AND individual_id = $2", [req.params.decision_id, req.params.individual_id]);
+  if (!resp) return res.json({ messages: [], completed: false });
+  res.json({ messages: JSON.parse(resp.messages || "[]"), completed: !!resp.completed });
+});
+
+app.post("/api/decide/message", async (req, res) => {
+  const { decision_id, individual_id, message } = req.body;
+  if (!decision_id || !individual_id || !message?.trim()) return res.status(400).json({ error: "decision_id, individual_id, message required" });
+
+  const individual = await db.getOne("SELECT * FROM individuals WHERE id = $1", [individual_id]);
+  if (!individual) return res.status(404).json({ error: "Individual not found" });
+
+  const decision = await db.getOne("SELECT * FROM decisions WHERE id = $1", [decision_id]);
+  if (!decision) return res.status(404).json({ error: "Decision not found" });
+
+  const decResp = await db.getOne("SELECT * FROM decision_responses WHERE decision_id = $1 AND individual_id = $2", [decision_id, individual_id]);
+  if (!decResp) return res.status(404).json({ error: "Response record not found" });
+  if (decResp.completed) return res.status(400).json({ error: "Already submitted" });
+
+  const members = await db.getAll("SELECT * FROM individuals WHERE couple_id = $1", [individual.couple_id]);
+  const partner  = members.find(m => m.id !== individual_id);
+  const history  = JSON.parse(decResp.messages || "[]");
+  const isStart  = message.trim() === "__START__";
+  const messagesToSend = isStart ? [{ role: "user", content: "Please begin." }] : [...history, { role: "user", content: message.trim() }];
+  if (!isStart) history.push({ role: "user", content: message.trim() });
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+
+  let fullResponse = "";
+  try {
+    const mocSummary = await getMocSummaryForIndividual(individual.couple_id, individual_id);
+    const stream = anthropic.messages.stream({
+      model: "claude-sonnet-4-6", max_tokens: 1024,
+      system: buildSmicPrompt(individual.name, partner?.name || "your partner", decision.title, mocSummary),
+      messages: messagesToSend
+    });
+    for await (const event of stream) {
+      if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+        fullResponse += event.delta.text;
+        res.write(`data: ${JSON.stringify({ text: event.delta.text })}\n\n`);
+      }
+    }
+    history.push({ role: "assistant", content: fullResponse });
+    await db.run("UPDATE decision_responses SET messages = $1 WHERE decision_id = $2 AND individual_id = $3", [JSON.stringify(history), decision_id, individual_id]);
+    res.write("data: [DONE]\n\n");
+  } catch (err) {
+    res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
+  } finally { res.end(); }
+});
+
+app.post("/api/decide/submit", async (req, res) => {
+  const { decision_id, individual_id } = req.body;
+
+  const individual = await db.getOne("SELECT * FROM individuals WHERE id = $1", [individual_id]);
+  if (!individual) return res.status(404).json({ error: "Not found" });
+
+  const decision = await db.getOne("SELECT * FROM decisions WHERE id = $1", [decision_id]);
+  if (!decision) return res.status(404).json({ error: "Decision not found" });
+
+  const decResp = await db.getOne("SELECT * FROM decision_responses WHERE decision_id = $1 AND individual_id = $2", [decision_id, individual_id]);
+  if (!decResp) return res.status(404).json({ error: "Response not found" });
+  if (decResp.completed) return res.status(400).json({ error: "Already submitted" });
+
+  const messages = JSON.parse(decResp.messages || "[]");
+  let extracted = { smic_s: "", smic_m: "", smic_i: "", smic_c: "", leaning: "" };
+  try {
+    const raw = await anthropic.messages.create({
+      model: "claude-sonnet-4-6", max_tokens: 1024,
+      messages: [{ role: "user", content: buildSmicExtractionPrompt(individual.name, messagesToText(messages)) }]
+    });
+    extracted = JSON.parse(raw.content[0].text.replace(/^```json\n?|```$/gm, "").trim());
+  } catch (err) { console.error("SMIC extraction error:", err.message); }
+
+  await db.run(
+    "UPDATE decision_responses SET smic_s=$1,smic_m=$2,smic_i=$3,smic_c=$4,leaning=$5,completed=1,submitted_at=NOW() WHERE decision_id=$6 AND individual_id=$7",
+    [extracted.smic_s, extracted.smic_m, extracted.smic_i, extracted.smic_c, extracted.leaning, decision_id, individual_id]
+  );
+
+  const allResponses = await db.getAll("SELECT * FROM decision_responses WHERE decision_id = $1", [decision_id]);
+  const bothComplete  = allResponses.length === 2 && allResponses.every(r => r.completed);
+  if (!bothComplete) return res.json({ state: "waiting" });
+
+  await db.run("UPDATE decisions SET status = 'synthesis_pending' WHERE id = $1", [decision_id]);
+  try {
+    const [r1, r2] = allResponses;
+    const p1 = await db.getOne("SELECT * FROM individuals WHERE id = $1", [r1.individual_id]);
+    const p2 = await db.getOne("SELECT * FROM individuals WHERE id = $1", [r2.individual_id]);
+
+    const synthRaw = await anthropic.messages.create({
+      model: "claude-sonnet-4-6", max_tokens: 3000,
+      messages: [{ role: "user", content: buildDecisionSynthesisPrompt(
+        decision.title,
+        p1.name, { smic_s: r1.smic_s, smic_m: r1.smic_m, smic_i: r1.smic_i, smic_c: r1.smic_c, leaning: r1.leaning },
+        p2.name, { smic_s: r2.smic_s, smic_m: r2.smic_m, smic_i: r2.smic_i, smic_c: r2.smic_c, leaning: r2.leaning }
+      )}]
+    });
+    const synthesis = JSON.parse(synthRaw.content[0].text.replace(/^```json\n?|```$/gm, "").trim());
+    await db.run("INSERT INTO decision_synthesis (decision_id, couple_view) VALUES ($1,$2)", [decision_id, JSON.stringify(synthesis.decision_view)]);
+    await db.run("UPDATE decisions SET status = 'complete' WHERE id = $1", [decision_id]);
+    return res.json({ state: "synthesis", decision_view: synthesis.decision_view });
+  } catch (err) {
+    await db.run("UPDATE decisions SET status = 'open' WHERE id = $1", [decision_id]);
+    return res.status(500).json({ error: "Synthesis failed: " + err.message });
+  }
+});
+
+// View any specific decision by id (for browsing history), regardless of
+// whether it's still the couple's "active" one.
+app.get("/api/decide/:decision_id", async (req, res) => {
+  const decision = await db.getOne("SELECT * FROM decisions WHERE id = $1", [req.params.decision_id]);
+  if (!decision) return res.status(404).json({ error: "Not found" });
+
+  const allResponses = await db.getAll("SELECT * FROM decision_responses WHERE decision_id = $1", [req.params.decision_id]);
+  const enriched = await Promise.all(allResponses.map(async r => {
+    const person = await db.getOne("SELECT name FROM individuals WHERE id = $1", [r.individual_id]);
+    return { name: person?.name, smic_s: r.smic_s, smic_m: r.smic_m, smic_i: r.smic_i, smic_c: r.smic_c, leaning: r.leaning, completed: !!r.completed };
+  }));
+
+  let decision_view = null;
+  if (decision.status === "complete") {
+    const synthesis = await db.getOne("SELECT * FROM decision_synthesis WHERE decision_id = $1", [req.params.decision_id]);
+    if (synthesis) decision_view = JSON.parse(synthesis.couple_view);
+  }
+
+  res.json({ id: decision.id, title: decision.title, category: decision.category, status: decision.status, created_at: decision.created_at, responses: enriched, decision_view });
 });
 
 // ─── Season ───────────────────────────────────────────────────────────────────
