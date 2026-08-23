@@ -35,6 +35,21 @@
     .empty-state .es-icon { font-size: 1.75rem; color: var(--gold); margin-bottom: 1rem; }
     .empty-state a { color: var(--gold); text-decoration: underline; }
 
+    /* ── Incoming (what partner shared with you) ── */
+    .incoming-section { margin-bottom: 2.5rem; padding-bottom: 2rem; border-bottom: 1px solid var(--border); }
+    .insight-badge {
+      display: inline-block; background: var(--gold); color: white;
+      font-size: 0.65rem; font-weight: 600; padding: 0.15rem 0.55rem;
+      border-radius: 100px; margin-left: 0.5rem; vertical-align: middle;
+      letter-spacing: 0.04em;
+    }
+    .btn-discuss {
+      background: var(--navy); color: white; border: none; border-radius: 8px;
+      padding: 0.45rem 1rem; font-family: "Inter", sans-serif; font-size: 0.78rem;
+      font-weight: 500; cursor: pointer; transition: background 0.2s;
+    }
+    .btn-discuss:hover { background: var(--slate); }
+
     .domain-group { margin-bottom: 2.25rem; }
     .domain-group-title {
       font-size: 0.72rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase;
@@ -81,6 +96,25 @@
       margin-top: 0.9rem; font-size: 0.85rem; line-height: 1.75;
       color: var(--text); border-top: 1px solid #EDE5D0; padding-top: 0.9rem;
     }
+
+    /* Shared-insight status (moved here from the dashboard) */
+    .insight-card-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.9rem; }
+    .insight-status { font-size: 0.78rem; color: var(--warm-gray); }
+    .coffee-section { margin-top: 0.85rem; border-top: 1px solid #EDE5D0; padding-top: 0.85rem; }
+    .coffee-date-display { font-size: 0.88rem; color: var(--navy); font-weight: 500; }
+    .coffee-input-wrap { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+    .coffee-input {
+      flex: 1; min-width: 200px; border: 1px solid var(--border); border-radius: 8px;
+      padding: 0.5rem 0.85rem; font-family: "Inter", sans-serif; font-size: 0.85rem;
+      color: var(--text); background: white; outline: none;
+    }
+    .coffee-input:focus { border-color: var(--gold); }
+    .btn-coffee {
+      background: none; border: 1.5px solid var(--gold); color: var(--gold);
+      border-radius: 8px; padding: 0.45rem 0.9rem; font-family: "Inter", sans-serif;
+      font-size: 0.78rem; font-weight: 500; cursor: pointer; transition: all 0.2s; white-space: nowrap;
+    }
+    .btn-coffee:hover { background: var(--gold); color: white; }
   </style>
 </head>
 <body>
@@ -100,6 +134,7 @@
 
 <script>
   let individualId = localStorage.getItem("7s_individual_id");
+  let coupleId = localStorage.getItem("7s_couple_id");
   let partnerName = null;
   const SEASON_NAMES = ["", "Engagement & Newlyweds", "Building a Home", "Young Children", "School-Age Children", "Teenagers", "Empty Nest", "Legacy & Retirement"];
 
@@ -109,6 +144,7 @@
       if (!res.ok) { window.location.href = "/login.html"; return false; }
       const user = await res.json();
       individualId = user.individual_id;
+      coupleId = user.couple_id;
       localStorage.setItem("7s_individual_id", user.individual_id);
       localStorage.setItem("7s_couple_id",     user.couple_id);
       localStorage.setItem("7s_name",          user.name);
@@ -136,24 +172,48 @@
       partnerName = me.partner?.name || null;
     } catch {}
 
+    // Real shared_insights rows (id, discussion_status, coffee_date) for
+    // whatever I've already shared, keyed the same way the server itself
+    // checks "already shared" — domain_index + exact text.
+    const sharedStatusByKey = new Map();
+    let fromPartner = [];
+    try {
+      const sharedRes = await fetch("/api/insights/" + coupleId + "?viewer_id=" + individualId);
+      if (sharedRes.ok) {
+        const sharedRows = await sharedRes.json();
+        sharedRows.filter(r => r.is_mine).forEach(r => {
+          sharedStatusByKey.set(r.domain_index + "::" + r.insight_text, r);
+        });
+        fromPartner = sharedRows.filter(r => !r.is_mine);
+        // Auto-mark partner's insights as read
+        fromPartner.filter(i => i.discussion_status === "shared").forEach(i => {
+          fetch("/api/insights/" + i.id + "/read", { method: "POST" });
+        });
+      }
+    } catch {}
+
     const res = await fetch("/api/insights/mine/" + individualId);
     const data = await res.json();
-    render(data.insights || []);
+    render(data.insights || [], sharedStatusByKey, fromPartner);
   }
 
-  function render(insights) {
+  function render(insights, sharedStatusByKey, fromPartner) {
     const el = document.getElementById("main-content");
+
+    const incomingHTML = (fromPartner && fromPartner.length) ? incomingSectionHTML(fromPartner) : "";
 
     if (insights.length === 0) {
       el.innerHTML = `
         <div class="page-header">
           <h1>What Seven has noticed.</h1>
-          <p>Every insight from your discovery conversations, gathered in one place.</p>
+          <p>Every insight from your discovery conversations, gathered in one place. None of it is visible to your partner unless you choose to share a specific one.</p>
         </div>
+        <div id="incoming-anchor"></div>
         <div class="empty-state">
           <div class="es-icon">✦</div>
           Nothing here yet — Seven will start noticing things as you talk through your <a href="/onboarding.html">discovery topics</a>.
         </div>`;
+      document.getElementById("incoming-anchor").innerHTML = incomingHTML;
       return;
     }
 
@@ -172,8 +232,9 @@
     el.innerHTML = `
       <div class="page-header">
         <h1>What Seven has noticed.</h1>
-        <p>Every insight from your discovery conversations, gathered in one place.</p>
+        <p>Every insight from your discovery conversations, gathered in one place. None of it is visible to your partner unless you choose to share a specific one.</p>
       </div>
+      <div id="incoming-anchor">${incomingHTML}</div>
       <div id="groups"></div>`;
 
     const groupsEl = document.getElementById("groups");
@@ -187,18 +248,83 @@
       groupEl.appendChild(title);
 
       group.items.forEach(insight => {
-        groupEl.appendChild(buildCard(insight));
+        groupEl.appendChild(buildCard(insight, sharedStatusByKey));
       });
 
       groupsEl.appendChild(groupEl);
     });
   }
 
-  function buildCard(insight) {
+  // ── Incoming: what my partner shared with me ────────────────────────────
+
+  function incomingSectionHTML(fromPartner) {
+    const newCount = fromPartner.filter(i => i.discussion_status === "shared").length;
+    return `<div class="incoming-section">
+      <div class="domain-group-title" style="border-bottom:none; margin-bottom:0.6rem;">${escapeHTML(partnerName || "Your partner")} shared with you${newCount > 0 ? ` <span class="insight-badge">${newCount} new</span>` : ""}</div>
+      <p style="font-size:0.82rem; color:var(--warm-gray); margin:0 0 1rem; line-height:1.5;">These are specific reflections ${escapeHTML(partnerName || "your partner")} chose to share with you — not their full conversation with Seven.</p>
+      ${fromPartner.map(incomingInsightCard).join("")}
+    </div>`;
+  }
+
+  function seasonBadges(tags) {
+    return (tags || []).map(tag => {
+      const name = SEASON_NAMES[tag.num] || ("Season " + tag.num);
+      return `<span class="season-badge ${tag.impact}">Season ${tag.num} · ${escapeHTML(name)} · ${tag.impact}</span>`;
+    }).join("");
+  }
+
+  function incomingInsightCard(insight) {
+    const statusText = { shared: "New", read: "You've read this", discussion_requested: "You want to discuss this", scheduled: "Coffee date set" }[insight.discussion_status] || "";
+    const canDiscuss = insight.discussion_status === "shared" || insight.discussion_status === "read";
+    const coffeeHtml = (insight.discussion_status === "discussion_requested" || insight.discussion_status === "scheduled")
+      ? `<div class="coffee-section">${insight.coffee_date
+          ? `<div class="coffee-date-display">☕ Coffee date: ${escapeHTML(insight.coffee_date)}</div>`
+          : `<div class="coffee-input-wrap">
+              <input class="coffee-input" id="ci-${insight.id}" placeholder="When? e.g. Saturday morning, July 5th" />
+              <button class="btn-coffee" onclick="setCoffeeDateIncoming('${insight.id}')">Set date →</button>
+             </div>`
+        }</div>`
+      : "";
+
+    return `<div class="ir-card">
+      ${insight.domain_name ? `<div class="domain-group-title" style="border-bottom:none; margin-bottom:0.4rem;">${escapeHTML(insight.domain_name)}</div>` : ""}
+      <div class="ir-text">${escapeHTML(insight.insight_text)}</div>
+      ${insight.season_tags.length ? `<div class="ir-seasons"><span class="ir-seasons-label">Season impact</span>${seasonBadges(insight.season_tags)}</div>` : ""}
+      <div class="insight-card-footer">
+        <span class="insight-status">${statusText}</span>
+        ${canDiscuss ? `<button class="btn-discuss" onclick="requestDiscussion('${insight.id}')">I'd like to talk about this →</button>` : ""}
+      </div>
+      ${coffeeHtml}
+    </div>`;
+  }
+
+  async function requestDiscussion(insightId) {
+    try {
+      await fetch("/api/insights/" + insightId + "/discuss", { method: "POST" });
+      load();
+    } catch {}
+  }
+
+  async function setCoffeeDateIncoming(insightId) {
+    const input = document.getElementById("ci-" + insightId);
+    if (!input?.value?.trim()) return;
+    try {
+      await fetch("/api/insights/" + insightId + "/coffee", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ coffee_date: input.value.trim() })
+      });
+      load();
+    } catch {}
+  }
+
+  function buildCard(insight, sharedStatusByKey) {
     const badges = insight.season_tags.map(tag => {
       const name = SEASON_NAMES[tag.num] || ("Season " + tag.num);
       return `<span class="season-badge ${tag.impact}">Season ${tag.num} · ${escapeHTML(name)} · ${tag.impact}</span>`;
     }).join("");
+
+    const sharedRow = insight.shared ? sharedStatusByKey.get(insight.domain_index + "::" + insight.text) : null;
 
     const card = document.createElement("div");
     card.className = "ir-card";
@@ -207,10 +333,11 @@
       ${insight.season_tags.length > 0 ? `<div class="ir-seasons"><span class="ir-seasons-label">Season impact</span>${badges}</div>` : ""}
       <div class="ir-actions">
         <button class="btn-ir-deeper">What might this mean for me? →</button>
-        ${insight.shared
+        ${insight.shared && !sharedRow
           ? `<span class="shared-tag">Shared with ${escapeHTML(partnerName || "partner")} ✓</span>`
-          : (partnerName ? `<button class="btn-ir-share">Share with ${escapeHTML(partnerName)} →</button>` : "")}
+          : (!insight.shared && partnerName ? `<button class="btn-ir-share">Share with ${escapeHTML(partnerName)} →</button>` : "")}
       </div>
+      ${sharedRow ? sharedStatusHTML(sharedRow) : ""}
       <div class="ir-deep-result" style="display:none"></div>`;
 
     card.querySelector(".btn-ir-deeper").addEventListener("click", (e) => deepenInsight(insight, card, e.target));
@@ -218,6 +345,43 @@
     if (shareBtn) shareBtn.addEventListener("click", (e) => shareInsight(insight, e.target));
 
     return card;
+  }
+
+  // Rich status for an insight I've already shared — moved here from the
+  // dashboard so "the dashboard" stays limited to what my partner shared
+  // with me, while this page tracks everything I've sent them.
+  function sharedStatusHTML(row) {
+    const statusText = {
+      shared: `Waiting for ${escapeHTML(partnerName || "your partner")} to read`,
+      read: `${escapeHTML(partnerName || "Your partner")} has read this`,
+      discussion_requested: `${escapeHTML(partnerName || "Your partner")} wants to discuss this`,
+      scheduled: "Coffee date set"
+    }[row.discussion_status] || "";
+
+    const coffeeHtml = (row.discussion_status === "discussion_requested" || row.discussion_status === "scheduled")
+      ? `<div class="coffee-section">${row.coffee_date
+          ? `<div class="coffee-date-display">☕ Coffee date: ${escapeHTML(row.coffee_date)}</div>`
+          : `<div class="coffee-input-wrap">
+              <input class="coffee-input" id="cm-${row.id}" placeholder="When? e.g. Saturday morning, July 5th" />
+              <button class="btn-coffee" onclick="setCoffeeDateMe('${row.id}')">Set date →</button>
+             </div>`
+        }</div>`
+      : "";
+
+    return `<div class="insight-card-footer"><span class="insight-status">${statusText}</span></div>${coffeeHtml}`;
+  }
+
+  async function setCoffeeDateMe(insightId) {
+    const input = document.getElementById("cm-" + insightId);
+    if (!input?.value?.trim()) return;
+    try {
+      await fetch("/api/insights/" + insightId + "/coffee", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ coffee_date: input.value.trim() })
+      });
+      load();
+    } catch {}
   }
 
   async function deepenInsight(insight, card, btn) {

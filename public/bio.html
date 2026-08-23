@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Before We Begin · 7 Seasons</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --navy: #1C2B3A; --slate: #2D3F50; --gold: #C4963A; --gold-pale: #F9F3E8;
+      --cream: #FAF8F4; --warm-gray: #8C8178; --text: #2A2A2A; --border: #E0D9D0;
+    }
+    body {
+      font-family: "Inter", sans-serif; background: var(--cream); color: var(--text);
+      min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1.5rem 1.5rem 3rem;
+    }
+    .card {
+      background: white; border-radius: 16px; padding: 2.5rem;
+      width: 100%; max-width: 480px; box-shadow: 0 4px 24px rgba(0,0,0,0.07);
+    }
+    .logo {
+      font-family: "Cormorant Garamond", serif; font-size: 1.4rem;
+      font-weight: 600; color: var(--navy); margin-bottom: 0.25rem;
+    }
+    .logo span { color: var(--gold); }
+    .subtitle { font-size: 0.85rem; color: var(--warm-gray); margin-bottom: 1.75rem; line-height: 1.6; }
+    h2 { font-family: "Cormorant Garamond", serif; font-size: 1.85rem; color: var(--navy); margin-bottom: 0.5rem; }
+
+    label {
+      display: block; font-size: 0.78rem; font-weight: 500;
+      letter-spacing: 0.06em; text-transform: uppercase; color: var(--warm-gray); margin-bottom: 0.5rem;
+    }
+    .field { margin-bottom: 1.5rem; }
+    .field-row { display: flex; gap: 1rem; }
+    .field-row .field { flex: 1; }
+
+    input[type="number"], input[type="text"], textarea {
+      width: 100%; padding: 0.85rem 1rem; border: 1.5px solid var(--border);
+      border-radius: 8px; font-family: "Inter", sans-serif; font-size: 0.95rem;
+      color: var(--text); background: var(--cream);
+      outline: none; transition: border-color 0.2s;
+    }
+    input:focus, textarea:focus { border-color: var(--navy); background: white; }
+    textarea { resize: vertical; min-height: 60px; line-height: 1.5; }
+
+    .radio-group { display: flex; flex-direction: column; gap: 0.6rem; }
+    .radio-option {
+      display: flex; align-items: center; gap: 0.65rem;
+      border: 1.5px solid var(--border); border-radius: 8px;
+      padding: 0.7rem 0.9rem; cursor: pointer; transition: all 0.2s;
+    }
+    .radio-option:hover { border-color: var(--navy); }
+    .radio-option.selected { border-color: var(--gold); background: var(--gold-pale); }
+    .radio-option input[type="radio"] { width: 16px; height: 16px; cursor: pointer; flex-shrink: 0; }
+    .radio-option span { font-size: 0.9rem; color: var(--text); }
+
+    .children-detail { margin-top: 0.75rem; display: none; }
+    .children-detail.visible { display: block; }
+
+    .btn {
+      width: 100%; background: var(--navy); color: white; border: none;
+      padding: 1rem; border-radius: 8px; font-family: "Inter", sans-serif;
+      font-size: 0.95rem; font-weight: 500; cursor: pointer; transition: background 0.2s; margin-top: 0.25rem;
+    }
+    .btn:hover { background: var(--slate); }
+
+    .skip-link {
+      text-align: center; margin-top: 1.25rem;
+    }
+    .skip-link button {
+      background: none; border: none; font-family: "Inter", sans-serif;
+      font-size: 0.82rem; color: var(--warm-gray); cursor: pointer; text-decoration: underline;
+    }
+    .skip-link button:hover { color: var(--navy); }
+
+    .field-hint { font-size: 0.78rem; color: var(--warm-gray); margin-top: 0.4rem; line-height: 1.5; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <div class="logo">7 <span>Seasons</span></div>
+  <div class="subtitle" id="page-subtitle">A few quick things so Seven's questions actually fit where you are — this takes under a minute, and nothing here is shared with your partner.</div>
+  <h2>Before we begin</h2>
+
+  <form id="bio-form" onsubmit="return false;">
+    <div class="field-row">
+      <div class="field">
+        <label for="bio-age">Your age</label>
+        <input type="number" id="bio-age" placeholder="e.g. 36" min="16" max="110">
+      </div>
+      <div class="field">
+        <label for="bio-years" id="bio-years-label">Years married</label>
+        <input type="number" id="bio-years" placeholder="e.g. 8" min="0" max="80">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Children</label>
+      <div class="radio-group" id="children-group">
+        <label class="radio-option" data-value="none">
+          <input type="radio" name="children_status" value="none">
+          <span>No children</span>
+        </label>
+        <label class="radio-option" data-value="expecting">
+          <input type="radio" name="children_status" value="expecting">
+          <span>Expecting our first</span>
+        </label>
+        <label class="radio-option" data-value="has_children">
+          <input type="radio" name="children_status" value="has_children">
+          <span>We have children</span>
+        </label>
+      </div>
+      <div class="children-detail" id="children-detail">
+        <input type="text" id="bio-children-detail" placeholder="How many, and what ages? e.g. '4 kids, ages 2–10'">
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="bio-notes">Anything else Seven should know? (optional)</label>
+      <textarea id="bio-notes" placeholder="e.g. blended family, previous marriage, big move coming up..."></textarea>
+    </div>
+
+    <button class="btn" onclick="submitBio()">Continue to Discovery →</button>
+  </form>
+
+  <div class="skip-link">
+    <button onclick="skipBio()">Skip for now</button>
+  </div>
+</div>
+
+<script>
+  let individualId = localStorage.getItem("7s_individual_id");
+  let coupleTrack = "standard";
+
+  async function init() {
+    try {
+      const authRes = await fetch("/api/auth/me");
+      if (!authRes.ok) { window.location.href = "/login.html"; return; }
+      const user = await authRes.json();
+      individualId = user.individual_id;
+
+      const meRes = await fetch("/api/me/" + individualId);
+      const me = await meRes.json();
+
+      if (me.bio_complete) {
+        window.location.href = "/onboarding.html";
+        return;
+      }
+
+      coupleTrack = me.couple_track || "standard";
+      if (coupleTrack === "premarital") {
+        document.getElementById("bio-years-label").textContent = "Years together";
+        document.getElementById("bio-years").placeholder = "e.g. 3";
+        document.getElementById("page-subtitle").textContent = "A few quick things so Seven's questions fit where you are as a couple — this takes under a minute, and nothing here is shared with your partner.";
+      }
+    } catch {
+      window.location.href = "/login.html";
+    }
+  }
+
+  document.querySelectorAll("#children-group .radio-option").forEach(opt => {
+    opt.addEventListener("click", () => {
+      document.querySelectorAll("#children-group .radio-option").forEach(o => o.classList.remove("selected"));
+      opt.classList.add("selected");
+      opt.querySelector("input").checked = true;
+      const detail = document.getElementById("children-detail");
+      detail.classList.toggle("visible", opt.dataset.value === "has_children");
+    });
+  });
+
+  async function postBio(bio) {
+    await fetch("/api/bio", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ individual_id: individualId, bio })
+    });
+    window.location.href = "/onboarding.html";
+  }
+
+  function submitBio() {
+    const age = document.getElementById("bio-age").value.trim();
+    const years = document.getElementById("bio-years").value.trim();
+    const childrenStatus = (document.querySelector('input[name="children_status"]:checked') || {}).value || "";
+    const childrenDetail = document.getElementById("bio-children-detail").value.trim();
+    const notes = document.getElementById("bio-notes").value.trim();
+
+    const bio = {};
+    if (age) bio.age = parseInt(age);
+    if (years) {
+      if (coupleTrack === "premarital") bio.years_together = parseInt(years);
+      else bio.years_married = parseInt(years);
+    }
+    if (childrenStatus) bio.children_status = childrenStatus;
+    if (childrenStatus === "has_children" && childrenDetail) bio.children_detail = childrenDetail;
+    if (notes) bio.notes = notes;
+
+    postBio(bio);
+  }
+
+  function skipBio() {
+    postBio({});
+  }
+
+  init();
+</script>
+
+</body>
+</html>

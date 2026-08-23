@@ -168,6 +168,12 @@
     .listening-label { font-size: 0.72rem; color: var(--red); font-weight: 500; text-align: center; padding: 0.25rem 0; display: none; }
     .listening-label.visible { display: block; }
 
+    /* Listening progress bar */
+    .listening-progress { display: none; height: 3px; margin: 0 1.5rem 0.5rem; border-radius: 2px; overflow: hidden; background: var(--border); }
+    .listening-progress.visible { display: block; }
+    .listening-progress-bar { width: 30%; height: 100%; border-radius: 2px; background: var(--red); animation: mic-progress 1.3s ease-in-out infinite; }
+    @keyframes mic-progress { 0% { transform: translateX(-100%); } 100% { transform: translateX(430%); } }
+
     /* ── Waiting state ── */
     .polling-label { font-size: 0.75rem; color: #B8B2AA; margin-top: 0.5rem; }
 
@@ -243,6 +249,7 @@
   </div>
 
   <div class="listening-label" id="listening-label">Listening...</div>
+  <div class="listening-progress" id="listening-progress"><div class="listening-progress-bar"></div></div>
   <div class="input-area" id="input-area">
     <textarea id="msg-input" placeholder="Share your thoughts..." rows="1"></textarea>
     <button class="btn-mic" id="mic-btn" onclick="toggleMic()" title="Tap to speak">
@@ -662,6 +669,9 @@
   let recognition      = null;
   let micShouldBeActive = false;
   let micBaseText      = "";
+  let micStoppedByUser = false;
+  let micRestartAttempts = 0;
+  const MAX_MIC_RESTART_ATTEMPTS = 5;
 
   function setupSpeechRecognition() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -674,6 +684,7 @@
     recognition.onstart = () => {
       document.getElementById("mic-btn").classList.add("listening");
       document.getElementById("listening-label").classList.add("visible");
+      document.getElementById("listening-progress").classList.add("visible");
     };
     recognition.onresult = (e) => {
       const t  = Array.from(e.results).map(r => r[0].transcript).join("");
@@ -690,27 +701,37 @@
       }
       document.getElementById("mic-btn").classList.remove("listening");
       document.getElementById("listening-label").classList.remove("visible");
+      document.getElementById("listening-progress").classList.remove("visible");
+      // Only auto-send when the user themself tapped the mic to stop --
+      // a dropped/error'd session must never silently submit a partial thought.
       const text = document.getElementById("msg-input").value.trim();
-      if (text && !isStreaming) sendMessage();
+      if (text && micStoppedByUser && !isStreaming) sendMessage();
+      micStoppedByUser = false;
     };
     recognition.onerror = (e) => {
       if (e.error === "aborted") return;
-      if (e.error === "no-speech" && micShouldBeActive && !isStreaming) {
+      const restartableErrors = ["no-speech", "network", "audio-capture"];
+      if (restartableErrors.includes(e.error) && micShouldBeActive && !isStreaming && micRestartAttempts < MAX_MIC_RESTART_ATTEMPTS) {
+        micRestartAttempts++;
         micBaseText = document.getElementById("msg-input").value.trim();
         try { recognition.start(); } catch {}
         return;
       }
       micShouldBeActive = false;
+      micRestartAttempts = 0;
       document.getElementById("mic-btn").classList.remove("listening");
       document.getElementById("listening-label").classList.remove("visible");
+      document.getElementById("listening-progress").classList.remove("visible");
     };
   }
 
   function toggleMic() {
     if (!recognition || isStreaming) return;
-    if (micShouldBeActive) { micShouldBeActive = false; recognition.stop(); }
+    if (micShouldBeActive) { micShouldBeActive = false; micStoppedByUser = true; recognition.stop(); }
     else {
       micShouldBeActive = true;
+      micStoppedByUser = false;
+      micRestartAttempts = 0;
       micBaseText = document.getElementById("msg-input").value.trim();
       try { recognition.start(); } catch {}
     }

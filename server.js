@@ -241,6 +241,8 @@ app.get("/api/me/:individual_id", async (req, res) => {
     couple_id: individual.couple_id, invite_code: couple.invite_code,
     current_domain: individual.current_domain,
     onboarding_complete: !!individual.onboarding_complete,
+    bio_complete: !!individual.bio_complete,
+    bio: JSON.parse(individual.bio || "{}"),
     dimensions: JSON.parse(individual.dimensions || "{}"),
     domain_summaries: JSON.parse(individual.domain_summaries || "{}"),
     domains_total: DOMAINS.length,
@@ -248,6 +250,20 @@ app.get("/api/me/:individual_id", async (req, res) => {
     both_complete: partner ? (!!individual.onboarding_complete && !!partner.onboarding_complete) : false,
     couple_track: couple.couple_track || "standard"
   });
+});
+
+app.post("/api/bio", async (req, res) => {
+  const { individual_id, bio } = req.body;
+  if (!individual_id) return res.status(400).json({ error: "individual_id required" });
+
+  const individual = await db.getOne("SELECT id FROM individuals WHERE id = $1", [individual_id]);
+  if (!individual) return res.status(404).json({ error: "Individual not found" });
+
+  await db.run(
+    "UPDATE individuals SET bio = $1, bio_complete = 1 WHERE id = $2",
+    [JSON.stringify(bio || {}), individual_id]
+  );
+  res.json({ success: true });
 });
 
 // ─── Discovery Conversation ───────────────────────────────────────────────────
@@ -283,7 +299,8 @@ app.post("/api/chat", async (req, res) => {
   const discContext     = couple?.couple_track === "premarital" ? "premarital" : "standard";
   const assistantCount  = history.filter(m => m.role === "assistant").length;
   const includeSynthesis = assistantCount > 0 && (assistantCount + 1) % 3 === 0;
-  const systemPrompt    = buildDiscoveryPrompt(individual.name, domain_index, discContext, includeSynthesis);
+  const bio             = JSON.parse(individual.bio || "{}");
+  const systemPrompt    = buildDiscoveryPrompt(individual.name, domain_index, discContext, includeSynthesis, bio);
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -694,6 +711,41 @@ app.post("/api/couple/:id/timeline", async (req, res) => {
 
 app.delete("/api/couple/:id/timeline/:entry_id", async (req, res) => {
   await db.run("DELETE FROM timeline_entries WHERE id = $1 AND couple_id = $2", [req.params.entry_id, req.params.id]);
+  res.json({ success: true });
+});
+
+// ─── MOC Board (Big Decision Advisor, step 1) ─────────────────────────────────
+// 4 fixed categories x 3 counselor slots each, per the Multitude of Counselors
+// framework. owner_key is an individual_id for a person's own board, or the
+// literal string "shared" for the couple's joint board.
+
+const MOC_CATEGORIES = ["spiritual", "financial", "relational", "professional"];
+
+app.get("/api/moc-board/:couple_id/:owner_key", async (req, res) => {
+  const rows = await db.getAll(
+    "SELECT category, slot, name, contact, notes FROM moc_board_entries WHERE couple_id = $1 AND owner_key = $2",
+    [req.params.couple_id, req.params.owner_key]
+  );
+  res.json({ categories: MOC_CATEGORIES, entries: rows });
+});
+
+app.post("/api/moc-board/:couple_id/:owner_key", async (req, res) => {
+  const { entries } = req.body;
+  if (!Array.isArray(entries)) return res.status(400).json({ error: "entries array required" });
+
+  for (const e of entries) {
+    if (!MOC_CATEGORIES.includes(e.category)) continue;
+    const slot = parseInt(e.slot);
+    if (!(slot >= 1 && slot <= 3)) continue;
+    await db.run(
+      `INSERT INTO moc_board_entries (id, couple_id, owner_key, category, slot, name, contact, notes, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW())
+       ON CONFLICT (couple_id, owner_key, category, slot)
+       DO UPDATE SET name = excluded.name, contact = excluded.contact, notes = excluded.notes, updated_at = NOW()`,
+      [generateId(), req.params.couple_id, req.params.owner_key, e.category, slot,
+       (e.name || "").trim(), (e.contact || "").trim(), (e.notes || "").trim()]
+    );
+  }
   res.json({ success: true });
 });
 

@@ -63,12 +63,27 @@ const DOMAINS = [
   }
 ];
 
-function buildDiscoveryPrompt(name, domainIndex, context = "standard", includeSynthesis = false) {
+function buildBioNote(name, bio) {
+  if (!bio) return "";
+  const parts = [];
+  if (bio.age) parts.push(`is ${bio.age} years old`);
+  if (bio.years_married) parts.push(`has been married ${bio.years_married} year${bio.years_married == 1 ? "" : "s"}`);
+  else if (bio.years_together) parts.push(`has been with their partner ${bio.years_together} year${bio.years_together == 1 ? "" : "s"}`);
+  if (bio.children_status === "none") parts.push("does not have children");
+  else if (bio.children_status === "expecting") parts.push("is expecting their first child");
+  else if (bio.children_status === "has_children" && bio.children_detail) parts.push(`has children: ${bio.children_detail}`);
+  if (bio.notes) parts.push(bio.notes);
+  if (parts.length === 0) return "";
+  return `\nLife stage context: ${name} ${parts.join("; ")}. Use this so your questions match where they actually are in life right now — don't ask about future family plans they've already lived out, and don't assume a stage they haven't reached yet.\n`;
+}
+
+function buildDiscoveryPrompt(name, domainIndex, context = "standard", includeSynthesis = false, bio = null) {
   const domain = DOMAINS[domainIndex];
   const premaritalNote = context === "premarital"
     ? `\nNote: ${name} is engaged and preparing for marriage, not yet married. Where appropriate, frame questions in the future tense — what they envision, expect, or hope for — rather than assuming present married experience. This is a discovery of who they are as an individual preparing for a life together.\n`
     : "";
-  return `You are Seven — a warm, deeply curious relationship guide.${premaritalNote}
+  const bioNote = buildBioNote(name, bio);
+  return `You are Seven — a warm, deeply curious relationship guide.${premaritalNote}${bioNote}
 
 You are part of 7 Seasons, a system that helps couples understand themselves and each other across the seasons of their marriage.
 

@@ -404,7 +404,11 @@
     .ir-header {
       font-size: 0.72rem; font-weight: 500; color: var(--gold);
       letter-spacing: 0.1em; text-transform: uppercase;
-      margin-bottom: 0.85rem; text-align: center;
+      margin-bottom: 0.35rem; text-align: center;
+    }
+    .ir-subhead {
+      font-size: 0.8rem; color: var(--warm-gray); text-align: center;
+      margin-bottom: 0.85rem; line-height: 1.5;
     }
     .ir-card {
       background: #FEFCF7; border: 1px solid #EDE5D0; border-radius: 12px;
@@ -449,6 +453,10 @@
       text-align: center; padding: 0.25rem 0; display: none; letter-spacing: 0.05em;
     }
     .listening-label.visible { display: block; }
+    .listening-progress { display: none; height: 3px; margin: 0 1.5rem 0.5rem; border-radius: 2px; overflow: hidden; background: var(--border); }
+    .listening-progress.visible { display: block; }
+    .listening-progress-bar { width: 30%; height: 100%; border-radius: 2px; background: #C0392B; animation: mic-progress 1.3s ease-in-out infinite; }
+    @keyframes mic-progress { 0% { transform: translateX(-100%); } 100% { transform: translateX(430%); } }
 
     /* ── Timer + Pick up later ── */
     .session-timer {
@@ -551,12 +559,14 @@
   <!-- Insights reveal (shown at end of each domain) -->
   <div class="insights-reveal" id="insights-reveal" style="display:none">
     <div class="ir-header">✦ What Seven noticed in this conversation</div>
+    <div class="ir-subhead" id="ir-subhead"></div>
     <div id="ir-cards"></div>
   </div>
 </div>
 
 <!-- Input -->
 <div class="listening-label" id="listening-label">Listening...</div>
+<div class="listening-progress" id="listening-progress"><div class="listening-progress-bar"></div></div>
 <div class="input-area" id="input-area">
   <textarea id="msg-input" placeholder="Tap the mic or type your response..." rows="1"></textarea>
   <button class="btn-mic" id="mic-btn" onclick="toggleMic()" title="Tap to speak">
@@ -579,7 +589,7 @@
   <div class="invite-box" id="invite-box">
     <div class="invite-label">Partner Invite Code</div>
     <div class="invite-code" id="invite-code-display">——</div>
-    <div class="invite-hint">Share this with your partner</div>
+    <div class="invite-hint">Share this with your partner — once they enter it, your accounts are linked and you won't need to send it again.</div>
   </div>
   <button class="btn-go-dashboard" id="done-btn" onclick="window.location.href='/dashboard.html'">Go to Dashboard</button>
 </div>
@@ -670,6 +680,10 @@
       const me = await res.json();
       if (me.onboarding_complete) {
         showComplete(me);
+        return;
+      }
+      if (!me.bio_complete) {
+        window.location.href = "/bio.html";
         return;
       }
       currentDomain = me.current_domain || 0;
@@ -810,6 +824,10 @@
     const container = document.getElementById("ir-cards");
     const reveal = document.getElementById("insights-reveal");
     container.innerHTML = "";
+
+    document.getElementById("ir-subhead").textContent = partnerName
+      ? `Nothing here is sent to ${partnerName} automatically — tapping "Share" sends only that one reflection, never your full conversation.`
+      : `Nothing here is sent to your partner automatically — tapping "Share" would send only that one reflection, never your full conversation.`;
 
     pendingInsights.forEach((insight, i) => {
       const deepId = "ir-deep-" + i;
@@ -1117,12 +1135,17 @@
       document.getElementById("done-btn").onclick = () => window.location.href = "/premarital.html";
     }
 
-    if (me.invite_code) {
-      document.getElementById("invite-code-display").textContent = me.invite_code;
-    }
-    if (me.partner?.onboarding_complete) {
-      document.getElementById("complete-text").textContent = "Both of you have completed your discovery. Your Marriage Trajectory Report is ready to view.";
+    if (!me.partner) {
+      // Partner hasn't joined yet -- this is the only time the code still matters.
+      if (me.invite_code) document.getElementById("invite-code-display").textContent = me.invite_code;
+    } else {
+      // Partner has already joined with this code -- it's now linked and the
+      // code is no longer needed, so don't keep re-showing it (that's what
+      // reads as "do I need to sync this again?" to someone re-visiting this screen).
       document.getElementById("invite-box").style.display = "none";
+      document.getElementById("complete-text").textContent = me.partner.onboarding_complete
+        ? "Both of you have completed your discovery. Your Marriage Trajectory Report is ready to view."
+        : `You're linked with ${me.partner.name} — no need to send the invite code again. Your Marriage Trajectory Report will be ready once they finish their own discovery.`;
     }
   }
 
@@ -1183,6 +1206,9 @@
   let micActive = false;
   let micShouldBeActive = false;
   let micBaseText = "";
+  let micStoppedByUser = false;
+  let micRestartAttempts = 0;
+  const MAX_MIC_RESTART_ATTEMPTS = 5;
 
   function setupSpeechRecognition() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -1199,6 +1225,7 @@
       micActive = true;
       document.getElementById("mic-btn").classList.add("listening");
       document.getElementById("listening-label").classList.add("visible");
+      document.getElementById("listening-progress").classList.add("visible");
     };
 
     recognition.onresult = (e) => {
@@ -1219,22 +1246,36 @@
       }
       document.getElementById("mic-btn").classList.remove("listening");
       document.getElementById("listening-label").classList.remove("visible");
+      document.getElementById("listening-progress").classList.remove("visible");
+      // Only auto-send when the user themself tapped the mic to stop.
+      // A stop caused by a dropped/error'd recognition session must never
+      // silently submit a partial, unfinished thought.
       const text = document.getElementById("msg-input").value.trim();
-      if (text && !isStreaming) sendMessage();
+      if (text && micStoppedByUser && !isStreaming) sendMessage();
+      micStoppedByUser = false;
     };
 
     recognition.onerror = (e) => {
       if (e.error === "aborted") return;
-      if (e.error === "no-speech" && micShouldBeActive && !isStreaming) {
-        // Restart on no-speech so long pauses don't kill it
+      // These are usually transient (brief connectivity drop, momentary loss
+      // of the mic when a phone screen dims, a short silence gap) -- retry
+      // instead of ending the turn, up to a small cap so a persistent
+      // failure doesn't loop forever.
+      const restartableErrors = ["no-speech", "network", "audio-capture"];
+      if (restartableErrors.includes(e.error) && micShouldBeActive && !isStreaming && micRestartAttempts < MAX_MIC_RESTART_ATTEMPTS) {
+        micRestartAttempts++;
         micBaseText = document.getElementById("msg-input").value.trim();
         try { recognition.start(); } catch {}
         return;
       }
+      // Fatal error or retries exhausted: stop listening, but never auto-send --
+      // whatever was captured stays in the box for the user to finish or send themselves.
       micActive = false;
       micShouldBeActive = false;
+      micRestartAttempts = 0;
       document.getElementById("mic-btn").classList.remove("listening");
       document.getElementById("listening-label").classList.remove("visible");
+      document.getElementById("listening-progress").classList.remove("visible");
     };
   }
 
@@ -1242,9 +1283,12 @@
     if (!recognition || isStreaming) return;
     if (micShouldBeActive) {
       micShouldBeActive = false;
+      micStoppedByUser = true;
       recognition.stop();
     } else {
       micShouldBeActive = true;
+      micStoppedByUser = false;
+      micRestartAttempts = 0;
       micBaseText = document.getElementById("msg-input").value.trim();
       speechSynthesis.cancel();
       try { recognition.start(); } catch {}

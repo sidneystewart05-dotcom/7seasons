@@ -37,6 +37,8 @@ async function initSchema() {
       domain_summaries TEXT DEFAULT '{}',
       email TEXT,
       password_hash TEXT,
+      bio TEXT DEFAULT '{}',
+      bio_complete INTEGER DEFAULT 0,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
 
@@ -108,6 +110,25 @@ async function initSchema() {
       UNIQUE(couple_id, session_num)
     );
 
+    -- Big Decision Advisor, step 1: the MOC (Multitude of Counselors) Board.
+    -- owner_key is either an individual_id (that person's own board) or the
+    -- literal string 'shared' (the couple's joint board) -- kept as a plain
+    -- text key rather than a nullable individual_id column so the unique
+    -- constraint below actually enforces one row per slot (Postgres treats
+    -- NULLs as distinct from each other, which would defeat that).
+    CREATE TABLE IF NOT EXISTS moc_board_entries (
+      id TEXT PRIMARY KEY,
+      couple_id TEXT NOT NULL,
+      owner_key TEXT NOT NULL,
+      category TEXT NOT NULL,
+      slot INTEGER NOT NULL,
+      name TEXT DEFAULT '',
+      contact TEXT DEFAULT '',
+      notes TEXT DEFAULT '',
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(couple_id, owner_key, category, slot)
+    );
+
     CREATE TABLE IF NOT EXISTS shared_insights (
       id TEXT PRIMARY KEY,
       couple_id TEXT NOT NULL,
@@ -125,6 +146,13 @@ async function initSchema() {
   await pool.query(`
     CREATE UNIQUE INDEX IF NOT EXISTS idx_individuals_email
     ON individuals(email) WHERE email IS NOT NULL;
+  `);
+
+  // Existing deployments already have an individuals table without these
+  // columns -- CREATE TABLE IF NOT EXISTS above is a no-op for them.
+  await pool.query(`
+    ALTER TABLE individuals ADD COLUMN IF NOT EXISTS bio TEXT DEFAULT '{}';
+    ALTER TABLE individuals ADD COLUMN IF NOT EXISTS bio_complete INTEGER DEFAULT 0;
   `);
 }
 
