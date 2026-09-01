@@ -550,8 +550,8 @@
 
   <!-- "Ready to move on" hint -->
   <div class="ready-hint" id="ready-hint">
-    Seven has finished exploring this topic. &nbsp;
-    <button onclick="advanceDomain()">Move to the next topic →</button>
+    <span id="ready-hint-text">Seven has finished exploring this topic.</span> &nbsp;
+    <button id="ready-hint-btn" onclick="advanceDomain()">Move to the next topic →</button>
     &nbsp;·&nbsp;
     <button onclick="saveAndExit()">Save &amp; close session</button>
   </div>
@@ -689,10 +689,23 @@
       currentDomain = me.current_domain || 0;
       partnerName = me.partner?.name || null;
       updateProgress();
+      initTimer(me.total_time_seconds || 0);
+      startTimer();
       startDomain();
     } catch (e) {
       console.error(e);
     }
+  }
+
+  function showReadyHint() {
+    const isLastDomain = currentDomain === DOMAINS.length - 1;
+    document.getElementById("ready-hint-text").textContent = isLastDomain
+      ? "Seven has finished the discovery portion."
+      : "Seven has finished exploring this topic.";
+    document.getElementById("ready-hint-btn").textContent = isLastDomain
+      ? "Finish discovery →"
+      : "Move to the next topic →";
+    document.getElementById("ready-hint").classList.add("visible");
   }
 
   function updateProgress() {
@@ -704,7 +717,6 @@
   async function startDomain() {
     domainReadyToAdvance = false;
     document.getElementById("ready-hint").classList.remove("visible");
-    startTimer();
 
     // Try to restore an existing conversation before starting fresh
     try {
@@ -717,10 +729,10 @@
         const aiMessages = data.messages.filter(m => m.role === "assistant");
         if (aiMessages.length > 0) {
           const lastAI = aiMessages[aiMessages.length - 1].content.toLowerCase();
-          const completionPhrases = ["move on to the next topic", "whenever you're ready, you can move on", "covered a lot of meaningful ground"];
+          const completionPhrases = ["move on to the next topic", "whenever you're ready, you can move on", "covered a lot of meaningful ground", "wraps up this part"];
           if (completionPhrases.some(p => lastAI.includes(p))) {
             domainReadyToAdvance = true;
-            document.getElementById("ready-hint").classList.add("visible");
+            showReadyHint();
             showInsightReveal();
           }
         }
@@ -1039,14 +1051,15 @@
         "ready, you can move on",
         "move on to the next",
         "next topic",
-        "covered a lot of meaningful ground"
+        "covered a lot of meaningful ground",
+        "wraps up this part"
       ];
       const lower = fullText.toLowerCase();
       const signalledComplete = completionPhrases.some(p => lower.includes(p));
 
       if (signalledComplete) {
         domainReadyToAdvance = true;
-        document.getElementById("ready-hint").classList.add("visible");
+        showReadyHint();
         showInsightReveal();
       }
 
@@ -1164,25 +1177,70 @@
   });
 
   // ── Session Timer ────────────────────────────────────────────────────────────
+  // Tracks total time across the whole conversation (all topics, all "pick up
+  // later" resumptions) — it only starts over for a brand new conversation.
+  // timerSeconds is seeded from the individual's persisted total on load, then
+  // just keeps counting up; it's never reset when moving between domains.
   let timerSeconds = 0;
+  let unsyncedSeconds = 0;
   let timerInterval = null;
+  const TIME_FLUSH_INTERVAL_SECONDS = 15;
+
+  function renderTimer() {
+    const m = Math.floor(timerSeconds / 60);
+    const s = timerSeconds % 60;
+    document.getElementById("session-timer").textContent =
+      m + ":" + String(s).padStart(2, "0");
+  }
+
+  function initTimer(startSeconds) {
+    timerSeconds = startSeconds || 0;
+    renderTimer();
+  }
 
   function startTimer() {
-    timerSeconds = 0;
-    clearInterval(timerInterval);
+    if (timerInterval) return; // already running — don't reset the count
     timerInterval = setInterval(() => {
       timerSeconds++;
-      const m = Math.floor(timerSeconds / 60);
-      const s = timerSeconds % 60;
-      document.getElementById("session-timer").textContent =
-        m + ":" + String(s).padStart(2, "0");
+      unsyncedSeconds++;
+      renderTimer();
+      if (unsyncedSeconds >= TIME_FLUSH_INTERVAL_SECONDS) flushTime();
     }, 1000);
   }
 
   function stopTimer() {
     clearInterval(timerInterval);
     timerInterval = null;
+    flushTime();
   }
+
+  async function flushTime() {
+    if (unsyncedSeconds <= 0 || !individualId) return;
+    const delta = unsyncedSeconds;
+    unsyncedSeconds -= delta;
+    try {
+      await fetch("/api/time", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ individual_id: individualId, delta_seconds: delta })
+      });
+    } catch {
+      unsyncedSeconds += delta; // network hiccup — retry on the next flush
+    }
+  }
+
+  function flushTimeOnUnload() {
+    if (unsyncedSeconds <= 0 || !individualId) return;
+    const delta = unsyncedSeconds;
+    unsyncedSeconds = 0;
+    navigator.sendBeacon(
+      "/api/time",
+      new Blob([JSON.stringify({ individual_id: individualId, delta_seconds: delta })], { type: "application/json" })
+    );
+  }
+
+  window.addEventListener("pagehide", flushTimeOnUnload);
+  window.addEventListener("beforeunload", flushTimeOnUnload);
 
   // ── Save & Resume ─────────────────────────────────────────────────────────────
   function saveAndExit() {

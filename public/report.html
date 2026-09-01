@@ -190,6 +190,15 @@
       return;
     }
 
+    if (!me.final_interview_completed) {
+      document.getElementById("status-screen").innerHTML = `
+        <div class="error-msg">
+          <p>Before generating your Marriage Trajectory Report, complete your Final Interview together — a joint conversation with both of you present.</p>
+          <button class="btn" onclick="window.location.href='/final-interview.html'">Go to Final Interview</button>
+        </div>`;
+      return;
+    }
+
     // Both done — offer to generate
     document.getElementById("status-screen").innerHTML = `
       <div style="text-align:center; padding:4rem 1.5rem;">

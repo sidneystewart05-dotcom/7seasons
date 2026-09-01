@@ -234,10 +234,24 @@
           <div class="ac-desc">Everything Seven has noticed across your discovery conversations, in one place.</div>
         </a>
 
+        <a href="/final-interview.html" class="action-card ${!bothDone ? "disabled" : ""}">
+          <div class="ac-icon">🤝</div>
+          <div class="ac-title">Final Interview</div>
+          <div class="ac-desc">${!bothDone
+            ? "Available when both of you complete discovery."
+            : me.final_interview_completed
+              ? "Completed — revisit your joint conversation anytime."
+              : "A joint conversation with both of you present, before your report is built."}</div>
+        </a>
+
         <a href="/report.html" class="action-card ${!bothDone ? "disabled" : ""}">
           <div class="ac-icon">✦</div>
           <div class="ac-title">View Trajectory Report</div>
-          <div class="ac-desc">${bothDone ? "Your Marriage Trajectory Report is ready." : "Available when both of you complete discovery."}</div>
+          <div class="ac-desc">${!bothDone
+            ? "Available when both of you complete discovery."
+            : !me.final_interview_completed
+              ? "Complete your Final Interview together first."
+              : "Your Marriage Trajectory Report is ready."}</div>
         </a>
 
         <a href="/timeline.html" class="action-card">

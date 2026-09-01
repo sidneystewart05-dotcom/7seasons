@@ -39,6 +39,7 @@ async function initSchema() {
       password_hash TEXT,
       bio TEXT DEFAULT '{}',
       bio_complete INTEGER DEFAULT 0,
+      total_time_seconds INTEGER DEFAULT 0,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
 
@@ -108,6 +109,19 @@ async function initSchema() {
       completed INTEGER DEFAULT 0,
       completed_at TIMESTAMPTZ,
       UNIQUE(couple_id, session_num)
+    );
+
+    -- Joint session, both spouses present, after individual discovery is done
+    -- but before the Marriage Model/Trajectory Report is generated. Seven
+    -- reviews both profiles ahead of time (briefing) then facilitates live.
+    CREATE TABLE IF NOT EXISTS final_interviews (
+      id SERIAL PRIMARY KEY,
+      couple_id TEXT UNIQUE NOT NULL,
+      briefing TEXT DEFAULT '{}',
+      messages TEXT DEFAULT '[]',
+      completed INTEGER DEFAULT 0,
+      completed_at TIMESTAMPTZ,
+      generated_at TIMESTAMPTZ
     );
 
     -- Big Decision Advisor, step 1: the MOC (Multitude of Counselors) Board.
@@ -188,6 +202,7 @@ async function initSchema() {
   await pool.query(`
     ALTER TABLE individuals ADD COLUMN IF NOT EXISTS bio TEXT DEFAULT '{}';
     ALTER TABLE individuals ADD COLUMN IF NOT EXISTS bio_complete INTEGER DEFAULT 0;
+    ALTER TABLE individuals ADD COLUMN IF NOT EXISTS total_time_seconds INTEGER DEFAULT 0;
   `);
 }
 

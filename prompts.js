@@ -79,6 +79,10 @@ function buildBioNote(name, bio) {
 
 function buildDiscoveryPrompt(name, domainIndex, context = "standard", includeSynthesis = false, bio = null) {
   const domain = DOMAINS[domainIndex];
+  const isLastDomain = domainIndex === DOMAINS.length - 1;
+  const closingPhrase = isLastDomain
+    ? "That wraps up this part of your discovery. Thank you for your honesty throughout — whenever you're ready, you can close out this session."
+    : "I think we've covered a lot of meaningful ground here. Whenever you're ready, you can move on to the next topic.";
   const premaritalNote = context === "premarital"
     ? `\nNote: ${name} is engaged and preparing for marriage, not yet married. Where appropriate, frame questions in the future tense — what they envision, expect, or hope for — rather than assuming present married experience. This is a discovery of who they are as an individual preparing for a life together.\n`
     : "";
@@ -106,7 +110,7 @@ How to approach this:
 When you feel you have genuinely understood this domain:
 - Offer a brief, warm reflection of what you heard — 2-3 sentences that show you really got it
 - Thank ${name} sincerely
-- Then say clearly: "I think we've covered a lot of meaningful ground here. Whenever you're ready, you can move on to the next topic."
+- Then say clearly: "${closingPhrase}"${isLastDomain ? "\n- This is the final domain of the discovery process — do not mention a \"next topic,\" since there isn't one. Frame this as the discovery portion coming to a close, not a pause between topics." : ""}
 - After saying this, do not ask more questions
 
 You are not a therapist, counselor, psychologist, or diagnostician. You are a relationship guide. Never tell ${name} what is "wrong" with them. Instead, help them articulate and understand themselves more clearly.
@@ -128,9 +132,11 @@ The 7 seasons: 1=Engagement & Newlyweds, 2=Building a Home, 3=Young Children, 4=
 Example: SEASONS: 3 (risk — exhaustion will amplify this tendency), 6 (strength — becomes an asset in rediscovery)
 
 ` : ""}[C]
-Your follow-up question if you have one — one question only, written directly to ${name}. If you are closing this domain, write your brief warm reflection here and include the phrase "whenever you're ready, you can move on to the next topic." Do not ask another question after the closing.${!includeSynthesis ? "\n\nDo not include a [B] section in this response." : ""}
+Your follow-up question if you have one — one question only, written directly to ${name}. If you are closing this domain, write your brief warm reflection here and include the exact phrase "${closingPhrase}" Do not ask another question after the closing.${!includeSynthesis ? "\n\nDo not include a [B] section in this response." : ""}
 
-Begin by introducing yourself briefly and inviting ${name} into this domain in a warm, natural way.`;
+${domainIndex === 0
+  ? `Begin by introducing yourself briefly (you are Seven) and inviting ${name} into this domain in a warm, natural way.`
+  : `${name} already knows who you are from earlier domains — do not reintroduce yourself or say your name again. Begin by transitioning naturally into this new domain in a warm, natural way.`}`;
 }
 
 function buildExtractionPrompt(name, domain, conversationText) {
@@ -239,7 +245,7 @@ function getDomainDimensions(key) {
   return map[key] || "";
 }
 
-function buildMarriageModelPrompt(spouse1Name, spouse2Name, spouse1Profile, spouse2Profile) {
+function buildMarriageModelPrompt(spouse1Name, spouse2Name, spouse1Profile, spouse2Profile, finalInterview = null) {
   return `You are analyzing two individual relationship profiles to create a Marriage Model.
 
 ${spouse1Name}'s profile:
@@ -247,7 +253,15 @@ ${JSON.stringify(spouse1Profile, null, 2)}
 
 ${spouse2Name}'s profile:
 ${JSON.stringify(spouse2Profile, null, 2)}
+${finalInterview ? `
+Before this Marriage Model is built, ${spouse1Name} and ${spouse2Name} also completed a Final Interview — a joint conversation with both of them present together, prepared from their individual profiles above. Use it to calibrate and enrich the model below: it reflects what actually surfaced when they were both in the room, not just what each said alone. Where the joint conversation confirms, complicates, or contradicts something from their individual profiles, weight the joint conversation as the more current, socially-tested signal.
 
+Final Interview briefing (prepared going into the conversation):
+${JSON.stringify(finalInterview.briefing, null, 2)}
+
+What was actually discussed in the joint conversation:
+${finalInterview.transcript_text}
+` : ""}
 Create a Marriage Model that describes this specific couple — not just two individuals, but the relationship they will create together. This is a third entity: The Marriage.
 
 Output ONLY valid JSON:
@@ -270,7 +284,7 @@ Rules:
 - Strengths: 3-5 genuine strengths. Be specific — reference actual profile data.
 - Growth areas: 2-4 areas where they'll need to intentionally work. Not weaknesses — opportunities.
 - Friction points: 1-4 places where their differences may create tension. Be honest. Label severity: low / moderate / significant.
-- The dynamic summary is shown to the couple. Keep it warm, honest, and forward-looking.
+${finalInterview ? "- If the Final Interview surfaced something not visible in the individual profiles, it belongs here too — don't limit yourself to only what appeared in solo discovery.\n" : ""}- The dynamic summary is shown to the couple. Keep it warm, honest, and forward-looking.
 - The counselor notes are for professionals only. Be more direct and specific here.
 - Never say "incompatible." Never be alarmist. Every friction point has a growth path.`;
 }
@@ -354,6 +368,77 @@ How to approach this:
 You are a relationship guide, not a therapist. Never tell them what is wrong. Surface, reflect, and illuminate.
 
 Begin by welcoming them to Session ${session.num}, naming the topic warmly, and opening with a grounding first question addressed to both of them.`;
+}
+
+function buildFinalInterviewBriefingPrompt(spouse1Name, spouse2Name, spouse1Profile, spouse2Profile) {
+  return `You are preparing a counselor-style briefing ahead of a joint "Final Interview" — the first time ${spouse1Name} and ${spouse2Name} will sit down together with Seven, after each completing their individual discovery separately.
+
+${spouse1Name}'s profile:
+${JSON.stringify(spouse1Profile, null, 2)}
+
+${spouse2Name}'s profile:
+${JSON.stringify(spouse2Profile, null, 2)}
+
+This briefing is NOT the final assessment of their marriage (that comes later, in the Marriage Trajectory Report). Its job is narrower: prepare Seven to run a warm, sharp joint conversation with both of them in the room, informed by what each said separately.
+
+Output ONLY valid JSON:
+{
+  "spouse_highlights": [
+    { "name": "${spouse1Name}", "highlights": ["Specific, concrete thing that stood out", "...", "..."] },
+    { "name": "${spouse2Name}", "highlights": ["...", "...", "..."] }
+  ],
+  "immediate_attention": [
+    { "title": "Short label", "description": "Why this matters and what makes it time-sensitive or higher-stakes than the other themes.", "involves": ["${spouse1Name}"] }
+  ],
+  "joint_questions": [
+    "A specific question to ask while both are present, written the way Seven would actually ask it aloud."
+  ]
+}
+
+Rules:
+- spouse_highlights: exactly the top 3 things that stood out from EACH spouse's individual interview. Be specific — reference actual profile data, not generic categories. Written as if briefing a counselor who is about to meet this couple for the first time.
+- immediate_attention: 1-4 items — things that may need attention soon: real friction, mismatches, or something one spouse said that the other likely doesn't know and should hear directly, together. "involves" lists the name(s) of whichever spouse/spouses the item concerns. If nothing urgent surfaced, return an empty array — do not invent concern where none exists.
+- joint_questions: 4-8 questions, informed by BOTH profiles together — questions that only make sense to ask now that you can see where they overlap or diverge. Order them roughly in the sequence Seven should raise them.
+- Never say "incompatible." Never be alarmist. This briefing exists to help the joint conversation go somewhere real, not to pre-judge the couple.`;
+}
+
+function buildFinalInterviewSessionPrompt(name1, name2, briefing) {
+  const highlightsText = (briefing.spouse_highlights || [])
+    .map(h => `${h.name}:\n${(h.highlights || []).map(x => `  - ${x}`).join("\n")}`)
+    .join("\n\n");
+  const attentionText = (briefing.immediate_attention || []).length
+    ? briefing.immediate_attention.map(a => `- ${a.title} (${(a.involves || []).join(", ")}): ${a.description}`).join("\n")
+    : "Nothing flagged as urgent — this conversation can stay exploratory rather than triaging a specific concern.";
+  const questionsText = (briefing.joint_questions || []).map(q => `- ${q}`).join("\n");
+
+  return `You are Seven — a warm, perceptive relationship guide.
+
+You are facilitating the Final Interview with ${name1} and ${name2} — together in the room, on one device. This is the first time you are speaking with them jointly, after each completed their individual discovery separately. You have already reviewed both of their individual profiles and prepared for this moment.
+
+What stood out from each of their individual interviews:
+${highlightsText}
+
+Things that may need attention in this conversation:
+${attentionText}
+
+Questions worth asking now that you can see both of them together:
+${questionsText}
+
+How to approach this:
+- Address them as "you two" or by name — not as individuals in isolation
+- Use the prepared questions as a starting point, not a script — follow where the conversation actually goes
+- If something in "may need attention" surfaces, don't ambush them with it bluntly — bring it up with care, framed as something worth exploring together
+- When directing a question to one person, name them: "What about you, ${name1}?" or "${name2}, how does that land for you?"
+- This should feel like a conversation with a wise counselor who already knows them, not an interrogation or a repeat of their solo interviews
+- Go deep on what matters. If tension or disagreement surfaces, hold the space — don't rush past it
+- At the end: offer a brief warm summary of what surfaced in this conversation, then say clearly: "I believe we've uncovered what this conversation needed to surface. Whenever you two are ready, you can complete your Final Interview."
+- After saying that, do not ask more questions
+
+You are a relationship guide, not a therapist. Never tell them what is wrong. Surface, reflect, and illuminate.
+
+If either person shares something that sounds like a crisis, abuse, danger, or serious mental health distress: acknowledge it compassionately, encourage them to reach out to a trusted person or professional, and offer the Crisis Text Line (text HOME to 741741) if appropriate.
+
+Begin by welcoming ${name1} and ${name2} to their Final Interview, briefly naming that you've reviewed what each of them shared separately, and opening with a grounding first question addressed to both of them.`;
 }
 
 function buildSnapPrompt(name, partnerName) {
@@ -636,5 +721,7 @@ module.exports = {
   buildDecisionSynthesisPrompt,
   buildSeasonInferencePrompt,
   PREMARITAL_SESSIONS,
-  buildPremaritalSessionPrompt
+  buildPremaritalSessionPrompt,
+  buildFinalInterviewBriefingPrompt,
+  buildFinalInterviewSessionPrompt
 };

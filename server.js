@@ -23,7 +23,9 @@ const {
   buildDecisionSynthesisPrompt,
   buildSeasonInferencePrompt,
   PREMARITAL_SESSIONS,
-  buildPremaritalSessionPrompt
+  buildPremaritalSessionPrompt,
+  buildFinalInterviewBriefingPrompt,
+  buildFinalInterviewSessionPrompt
 } = require("./prompts");
 
 const app      = express();
@@ -261,6 +263,7 @@ app.get("/api/me/:individual_id", async (req, res) => {
   const members = await db.getAll("SELECT * FROM individuals WHERE couple_id = $1", [individual.couple_id]);
   const partner  = members.find(m => m.id !== individual.id);
   const couple   = await db.getOne("SELECT * FROM couples WHERE id = $1", [individual.couple_id]);
+  const finalInterview = await db.getOne("SELECT completed FROM final_interviews WHERE couple_id = $1", [individual.couple_id]);
 
   res.json({
     id: individual.id, name: individual.name, role: individual.role,
@@ -272,9 +275,11 @@ app.get("/api/me/:individual_id", async (req, res) => {
     dimensions: JSON.parse(individual.dimensions || "{}"),
     domain_summaries: JSON.parse(individual.domain_summaries || "{}"),
     domains_total: DOMAINS.length,
+    total_time_seconds: individual.total_time_seconds || 0,
     partner: partner ? { id: partner.id, name: partner.name, onboarding_complete: !!partner.onboarding_complete } : null,
     both_complete: partner ? (!!individual.onboarding_complete && !!partner.onboarding_complete) : false,
-    couple_track: couple.couple_track || "standard"
+    couple_track: couple.couple_track || "standard",
+    final_interview_completed: !!(finalInterview && finalInterview.completed)
   });
 });
 
@@ -290,6 +295,20 @@ app.post("/api/bio", async (req, res) => {
     [JSON.stringify(bio || {}), individual_id]
   );
   res.json({ success: true });
+});
+
+app.post("/api/time", async (req, res) => {
+  const { individual_id, delta_seconds } = req.body;
+  const delta = parseInt(delta_seconds, 10);
+  if (!individual_id || !Number.isFinite(delta) || delta <= 0)
+    return res.status(400).json({ error: "individual_id and a positive delta_seconds required" });
+
+  const row = await db.getOne(
+    "UPDATE individuals SET total_time_seconds = total_time_seconds + $1 WHERE id = $2 RETURNING total_time_seconds",
+    [delta, individual_id]
+  );
+  if (!row) return res.status(404).json({ error: "Individual not found" });
+  res.json({ total_time_seconds: row.total_time_seconds });
 });
 
 // ─── Discovery Conversation ───────────────────────────────────────────────────
@@ -408,6 +427,10 @@ app.post("/api/couple/generate-report", async (req, res) => {
   if (members.length < 2 || !members.every(m => m.onboarding_complete))
     return res.status(400).json({ error: "Both spouses must complete onboarding first" });
 
+  const finalInterviewRow = await db.getOne("SELECT * FROM final_interviews WHERE couple_id = $1", [couple_id]);
+  if (!finalInterviewRow || !finalInterviewRow.completed)
+    return res.status(400).json({ error: "Complete your Final Interview together before generating your report" });
+
   const [s1, s2] = members;
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -417,19 +440,23 @@ app.post("/api/couple/generate-report", async (req, res) => {
     res.write(`data: ${JSON.stringify({ status: "Building marriage model..." })}\n\n`);
     const s1Profile = { name: s1.name, dimensions: JSON.parse(s1.dimensions || "{}"), domain_summaries: JSON.parse(s1.domain_summaries || "{}") };
     const s2Profile = { name: s2.name, dimensions: JSON.parse(s2.dimensions || "{}"), domain_summaries: JSON.parse(s2.domain_summaries || "{}") };
+    const finalInterviewSummary = {
+      briefing: JSON.parse(finalInterviewRow.briefing || "{}"),
+      transcript_text: messagesToText(JSON.parse(finalInterviewRow.messages || "[]"))
+    };
 
     const modelResponse = await anthropic.messages.create({
-      model: "claude-opus-4-8", max_tokens: 2048,
-      messages: [{ role: "user", content: buildMarriageModelPrompt(s1.name, s2.name, s1Profile, s2Profile) }]
+      model: "claude-opus-4-8", max_tokens: 4096,
+      messages: [{ role: "user", content: buildMarriageModelPrompt(s1.name, s2.name, s1Profile, s2Profile, finalInterviewSummary) }]
     });
-    const marriageModel = JSON.parse(modelResponse.content[0].text);
+    const marriageModel = JSON.parse(modelResponse.content[0].text.replace(/^```json\n?|```$/gm, "").trim());
 
     res.write(`data: ${JSON.stringify({ status: "Generating trajectory report..." })}\n\n`);
     const reportResponse = await anthropic.messages.create({
-      model: "claude-opus-4-8", max_tokens: 4096,
+      model: "claude-opus-4-8", max_tokens: 8192,
       messages: [{ role: "user", content: buildTrajectoryReportPrompt(s1.name, s2.name, marriageModel) }]
     });
-    const trajectoryReport = JSON.parse(reportResponse.content[0].text);
+    const trajectoryReport = JSON.parse(reportResponse.content[0].text.replace(/^```json\n?|```$/gm, "").trim());
 
     await db.run(
       `INSERT INTO marriage_models (couple_id, model, report, generated_at) VALUES ($1,$2,$3,NOW())
@@ -1053,6 +1080,101 @@ app.post("/api/premarital/message", async (req, res) => {
 app.post("/api/premarital/complete", async (req, res) => {
   const { couple_id, session_num } = req.body;
   await db.run("UPDATE premarital_sessions SET completed = 1, completed_at = NOW() WHERE couple_id = $1 AND session_num = $2", [couple_id, parseInt(session_num)]);
+  res.json({ success: true });
+});
+
+// ─── Final Interview (joint session, gates Marriage Report generation) ───────
+
+app.get("/api/final-interview/:couple_id", async (req, res) => {
+  const members = await db.getAll("SELECT * FROM individuals WHERE couple_id = $1", [req.params.couple_id]);
+  if (members.length === 0) return res.status(404).json({ error: "Couple not found" });
+
+  const bothComplete = members.length === 2 && members.every(m => m.onboarding_complete);
+  const row = await db.getOne("SELECT * FROM final_interviews WHERE couple_id = $1", [req.params.couple_id]);
+
+  res.json({
+    both_complete: bothComplete,
+    names: members.map(m => m.name),
+    briefing_ready: !!(row && row.briefing && row.briefing !== "{}"),
+    briefing: row ? JSON.parse(row.briefing || "{}") : {},
+    messages: row ? JSON.parse(row.messages || "[]") : [],
+    completed: !!(row && row.completed)
+  });
+});
+
+app.post("/api/final-interview/generate-briefing", async (req, res) => {
+  const { couple_id } = req.body;
+  const members = await db.getAll("SELECT * FROM individuals WHERE couple_id = $1", [couple_id]);
+  if (members.length < 2 || !members.every(m => m.onboarding_complete))
+    return res.status(400).json({ error: "Both spouses must complete onboarding first" });
+
+  const [s1, s2] = members;
+  try {
+    const s1Profile = { name: s1.name, dimensions: JSON.parse(s1.dimensions || "{}"), domain_summaries: JSON.parse(s1.domain_summaries || "{}") };
+    const s2Profile = { name: s2.name, dimensions: JSON.parse(s2.dimensions || "{}"), domain_summaries: JSON.parse(s2.domain_summaries || "{}") };
+
+    const raw = await anthropic.messages.create({
+      model: "claude-opus-4-8", max_tokens: 2048,
+      messages: [{ role: "user", content: buildFinalInterviewBriefingPrompt(s1.name, s2.name, s1Profile, s2Profile) }]
+    });
+    const briefing = JSON.parse(raw.content[0].text.replace(/^```json\n?|```$/gm, "").trim());
+
+    await db.run(
+      `INSERT INTO final_interviews (couple_id, briefing, generated_at) VALUES ($1,$2,NOW())
+       ON CONFLICT(couple_id) DO UPDATE SET briefing=EXCLUDED.briefing, generated_at=EXCLUDED.generated_at`,
+      [couple_id, JSON.stringify(briefing)]
+    );
+    res.json({ briefing });
+  } catch (err) {
+    console.error("Final interview briefing error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/final-interview/message", async (req, res) => {
+  const { couple_id, message } = req.body;
+  if (!couple_id || !message?.trim()) return res.status(400).json({ error: "couple_id and message required." });
+
+  const members = await db.getAll("SELECT * FROM individuals WHERE couple_id = $1", [couple_id]);
+  const [p1, p2] = members;
+  const row = await db.getOne("SELECT * FROM final_interviews WHERE couple_id = $1", [couple_id]);
+  if (!row || !row.briefing || row.briefing === "{}")
+    return res.status(400).json({ error: "Briefing has not been generated yet." });
+
+  const briefing = JSON.parse(row.briefing);
+  const history  = JSON.parse(row.messages || "[]");
+  const isStart  = message.trim() === "__START__";
+  const messagesToSend = isStart ? [{ role: "user", content: "Please begin." }] : [...history, { role: "user", content: message.trim() }];
+  if (!isStart) history.push({ role: "user", content: message.trim() });
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+
+  let fullResponse = "";
+  try {
+    const stream = anthropic.messages.stream({
+      model: "claude-sonnet-4-6", max_tokens: 1200,
+      system: buildFinalInterviewSessionPrompt(p1?.name || "Partner 1", p2?.name || "Partner 2", briefing),
+      messages: messagesToSend
+    });
+    for await (const event of stream) {
+      if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+        fullResponse += event.delta.text;
+        res.write(`data: ${JSON.stringify({ text: event.delta.text })}\n\n`);
+      }
+    }
+    history.push({ role: "assistant", content: fullResponse });
+    await db.run("UPDATE final_interviews SET messages = $1 WHERE couple_id = $2", [JSON.stringify(history), couple_id]);
+    res.write("data: [DONE]\n\n");
+  } catch (err) {
+    res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
+  } finally { res.end(); }
+});
+
+app.post("/api/final-interview/complete", async (req, res) => {
+  const { couple_id } = req.body;
+  await db.run("UPDATE final_interviews SET completed = 1, completed_at = NOW() WHERE couple_id = $1", [couple_id]);
   res.json({ success: true });
 });
 
