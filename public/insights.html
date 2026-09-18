@@ -73,6 +73,9 @@
     }
     .season-badge.risk { background: #FDF3E7; border: 1px solid #E8C080; color: #8B6020; }
     .season-badge.strength { background: #F0F5F0; border: 1px solid #9DBD9D; color: #3A6040; }
+    /* The badge matching the couple's actual current season stands out a
+       little from other (future) seasons mentioned on the same card. */
+    .season-badge.current { font-size: 0.78rem; font-weight: 700; padding: 0.3rem 0.85rem; border-width: 2px; }
 
     .ir-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; }
     .btn-ir-deeper {
@@ -136,6 +139,7 @@
   let individualId = localStorage.getItem("7s_individual_id");
   let coupleId = localStorage.getItem("7s_couple_id");
   let partnerName = null;
+  let currentSeasonNum = null;
   const SEASON_NAMES = ["", "Engagement & Newlyweds", "Building a Home", "Young Children", "School-Age Children", "Teenagers", "Empty Nest", "Legacy & Retirement"];
 
   async function checkAuth() {
@@ -170,6 +174,17 @@
       const meRes = await fetch("/api/me/" + individualId);
       const me = await meRes.json();
       partnerName = me.partner?.name || null;
+    } catch {}
+
+    // Current season, so passed seasons can be dropped from badges and the
+    // current one can be highlighted (falls back to "show everything" if
+    // the couple hasn't set a season yet).
+    try {
+      const seasonRes = await fetch("/api/couple/" + coupleId + "/season");
+      if (seasonRes.ok) {
+        const seasonData = await seasonRes.json();
+        currentSeasonNum = seasonData.season_current || null;
+      }
     } catch {}
 
     // Real shared_insights rows (id, discussion_status, coffee_date) for
@@ -266,10 +281,17 @@
     </div>`;
   }
 
+  // Drops seasons the couple has already moved past — only the current
+  // season and anything still ahead are worth showing here.
+  function visibleSeasonTags(tags) {
+    return (tags || []).filter(tag => currentSeasonNum == null || tag.num >= currentSeasonNum);
+  }
+
   function seasonBadges(tags) {
-    return (tags || []).map(tag => {
+    return visibleSeasonTags(tags).map(tag => {
       const name = SEASON_NAMES[tag.num] || ("Season " + tag.num);
-      return `<span class="season-badge ${tag.impact}">Season ${tag.num} · ${escapeHTML(name)} · ${tag.impact}</span>`;
+      const isCurrent = tag.num === currentSeasonNum;
+      return `<span class="season-badge ${tag.impact}${isCurrent ? " current" : ""}">Season ${tag.num} · ${escapeHTML(name)} · ${tag.impact}</span>`;
     }).join("");
   }
 
@@ -289,7 +311,7 @@
     return `<div class="ir-card">
       ${insight.domain_name ? `<div class="domain-group-title" style="border-bottom:none; margin-bottom:0.4rem;">${escapeHTML(insight.domain_name)}</div>` : ""}
       <div class="ir-text">${escapeHTML(insight.insight_text)}</div>
-      ${insight.season_tags.length ? `<div class="ir-seasons"><span class="ir-seasons-label">Season impact</span>${seasonBadges(insight.season_tags)}</div>` : ""}
+      ${visibleSeasonTags(insight.season_tags).length ? `<div class="ir-seasons"><span class="ir-seasons-label">Season impact</span>${seasonBadges(insight.season_tags)}</div>` : ""}
       <div class="insight-card-footer">
         <span class="insight-status">${statusText}</span>
         ${canDiscuss ? `<button class="btn-discuss" onclick="requestDiscussion('${insight.id}')">I'd like to talk about this →</button>` : ""}
@@ -319,10 +341,7 @@
   }
 
   function buildCard(insight, sharedStatusByKey) {
-    const badges = insight.season_tags.map(tag => {
-      const name = SEASON_NAMES[tag.num] || ("Season " + tag.num);
-      return `<span class="season-badge ${tag.impact}">Season ${tag.num} · ${escapeHTML(name)} · ${tag.impact}</span>`;
-    }).join("");
+    const badges = seasonBadges(insight.season_tags);
 
     const sharedRow = insight.shared ? sharedStatusByKey.get(insight.domain_index + "::" + insight.text) : null;
 
@@ -330,7 +349,7 @@
     card.className = "ir-card";
     card.innerHTML = `
       <div class="ir-text">${escapeHTML(insight.text)}</div>
-      ${insight.season_tags.length > 0 ? `<div class="ir-seasons"><span class="ir-seasons-label">Season impact</span>${badges}</div>` : ""}
+      ${visibleSeasonTags(insight.season_tags).length > 0 ? `<div class="ir-seasons"><span class="ir-seasons-label">Season impact</span>${badges}</div>` : ""}
       <div class="ir-actions">
         <button class="btn-ir-deeper">What might this mean for me? →</button>
         ${insight.shared && !sharedRow

@@ -174,6 +174,18 @@
     .insights-card { background: white; border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; }
     .insights-card p { font-size: 0.9rem; line-height: 1.75; color: var(--text); }
 
+    /* ── Shared insights relevant to this season ── */
+    .rel-insight-card { background: white; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 0.75rem; overflow: hidden; }
+    .rel-insight-head { padding: 1rem 1.25rem; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+    .rel-insight-head:hover { background: var(--gold-pale); }
+    .rel-insight-who { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--gold); margin-bottom: 0.25rem; }
+    .rel-insight-snippet { font-size: 0.88rem; font-weight: 500; color: var(--navy); }
+    .rel-insight-chevron { color: var(--warm-gray); transition: transform 0.2s; flex-shrink: 0; }
+    .rel-insight-card.open .rel-insight-chevron { transform: rotate(180deg); }
+    .rel-insight-body { display: none; padding: 0 1.25rem 1.25rem; font-size: 0.88rem; line-height: 1.7; color: var(--text); border-top: 1px solid var(--border); }
+    .rel-insight-card.open .rel-insight-body { display: block; padding-top: 1rem; }
+    .rel-empty { font-size: 0.85rem; color: var(--warm-gray); font-style: italic; padding: 0.5rem 0; }
+
     /* ── Update overlay ── */
     .update-overlay {
       display: none; position: fixed; inset: 0; background: rgba(28,43,58,0.5);
@@ -320,6 +332,9 @@
     <div class="insights-card">
       <p id="season-insight"></p>
     </div>
+
+    <div class="section-title">Insights For This Season</div>
+    <div id="season-insights-list"><div class="rel-empty">Loading...</div></div>
   </div>
 </div>
 
@@ -408,6 +423,10 @@
     await fetch("/api/auth/logout", { method: "POST" });
     localStorage.clear();
     window.location.href = "/login.html";
+  }
+
+  function escapeHTML(t) {
+    return (t || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   }
 
   // ── Boot ───────────────────────────────────────────────────────────────────
@@ -641,6 +660,11 @@
     // Season insight
     document.getElementById("season-insight").textContent = getSeasonInsight(current, next, data.season_track);
 
+    // Insights either of you has shared that are tagged to this season.
+    // Only shared insights, never private/unshared ones -- My Insights
+    // explicitly promises those stay invisible to a partner until shared.
+    loadSeasonInsights(data.season_current);
+
     // Pre-populate update sheet
     updateSeason = data.season_current;
     updateNext   = data.season_next || null;
@@ -673,6 +697,44 @@
     const base = insights[current.num] || "";
     if (next) return base + "\n\nYou're moving toward Season " + next.num + " (" + next.name + "). This transition deserves intentional conversation — what's coming, what you're leaving behind, and how you'll navigate it together.";
     return base;
+  }
+
+  // ── Insights relevant to this season ───────────────────────────────────────
+  // Reuses the same shared_insights feed My Insights and the dashboard use --
+  // so this only ever shows what someone has actually chosen to share, from
+  // either of you, filtered to whichever ones are tagged to the current season.
+  async function loadSeasonInsights(seasonNum) {
+    const el = document.getElementById("season-insights-list");
+    if (!seasonNum) { el.innerHTML = ""; return; }
+    el.innerHTML = `<div class="rel-empty">Loading...</div>`;
+    try {
+      const rows = await fetch("/api/insights/" + coupleId + "?viewer_id=" + individualId).then(r => r.json());
+      const relevant = (rows || []).filter(r => (r.season_tags || []).some(t => t.num === seasonNum));
+      if (!relevant.length) {
+        el.innerHTML = `<div class="rel-empty">Nothing shared yet that's tagged to this season.</div>`;
+        return;
+      }
+      el.innerHTML = relevant.map((r, i) => {
+        const snippet = (r.insight_text || "").length > 90 ? r.insight_text.slice(0, 90).trim() + "…" : (r.insight_text || "");
+        return `
+        <div class="rel-insight-card" id="rel-card-${i}">
+          <div class="rel-insight-head" onclick="toggleRelInsight(${i})">
+            <div>
+              <div class="rel-insight-who">${escapeHTML(r.shared_by_name || "Someone")}${r.domain_name ? " · " + escapeHTML(r.domain_name) : ""}</div>
+              <div class="rel-insight-snippet">${escapeHTML(snippet)}</div>
+            </div>
+            <span class="rel-insight-chevron">▾</span>
+          </div>
+          <div class="rel-insight-body">${escapeHTML(r.insight_text || "")}</div>
+        </div>`;
+      }).join("");
+    } catch {
+      el.innerHTML = `<div class="rel-empty">Could not load insights right now.</div>`;
+    }
+  }
+
+  function toggleRelInsight(i) {
+    document.getElementById("rel-card-" + i).classList.toggle("open");
   }
 
   // ── Color blending ─────────────────────────────────────────────────────────
