@@ -41,6 +41,24 @@ app.use(express.static(path.join(__dirname, "public")));
 
 function generateId()         { return crypto.randomUUID(); }
 function generateInviteCode() { return crypto.randomBytes(3).toString("hex").toUpperCase(); }
+
+// Every "Output ONLY valid JSON" prompt still occasionally gets a hedge
+// sentence prepended ("I notice the profile is limited, so..." / "The
+// provided conversation..."), especially from thinner test data. Strip
+// markdown fences, then isolate the outermost {...} or [...] block instead
+// of assuming the whole string is JSON, so one stray sentence doesn't crash
+// the whole request.
+function extractJSON(text) {
+  if (!text) throw new Error("Empty response from model");
+  let cleaned = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "").trim();
+  const start = cleaned.search(/[{\[]/);
+  if (start > 0) {
+    const closer = cleaned[start] === "{" ? "}" : "]";
+    const end = cleaned.lastIndexOf(closer);
+    if (end > start) cleaned = cleaned.slice(start, end + 1);
+  }
+  return JSON.parse(cleaned);
+}
 function messagesToText(msgs) { return msgs.map(m => `${m.role === "user" ? "Person" : "Seven"}: ${m.content}`).join("\n\n"); }
 
 // Mirrors the [B]/SEASONS: parsing done client-side in onboarding.html,
@@ -400,7 +418,7 @@ app.post("/api/domain/complete", async (req, res) => {
       model: "claude-sonnet-4-6", max_tokens: 1024,
       messages: [{ role: "user", content: buildExtractionPrompt(individual.name, domain, messagesToText(messages)) }]
     });
-    extractedData = JSON.parse(extraction.content[0].text);
+    extractedData = extractJSON(extraction.content[0].text);
   } catch (err) { console.error("Extraction error:", err.message); }
 
   const updatedDimensions  = { ...JSON.parse(individual.dimensions || "{}"), ...extractedData.dimensions };
@@ -449,14 +467,14 @@ app.post("/api/couple/generate-report", async (req, res) => {
       model: "claude-opus-4-8", max_tokens: 4096,
       messages: [{ role: "user", content: buildMarriageModelPrompt(s1.name, s2.name, s1Profile, s2Profile, finalInterviewSummary) }]
     });
-    const marriageModel = JSON.parse(modelResponse.content[0].text.replace(/^```json\n?|```$/gm, "").trim());
+    const marriageModel = extractJSON(modelResponse.content[0].text);
 
     res.write(`data: ${JSON.stringify({ status: "Generating trajectory report..." })}\n\n`);
     const reportResponse = await anthropic.messages.create({
       model: "claude-opus-4-8", max_tokens: 8192,
       messages: [{ role: "user", content: buildTrajectoryReportPrompt(s1.name, s2.name, marriageModel) }]
     });
-    const trajectoryReport = JSON.parse(reportResponse.content[0].text.replace(/^```json\n?|```$/gm, "").trim());
+    const trajectoryReport = extractJSON(reportResponse.content[0].text);
 
     await db.run(
       `INSERT INTO marriage_models (couple_id, model, report, generated_at) VALUES ($1,$2,$3,NOW())
@@ -638,7 +656,7 @@ app.post("/api/argue/submit", async (req, res) => {
       model: "claude-sonnet-4-6", max_tokens: 1024,
       messages: [{ role: "user", content: buildSnapExtractionPrompt(individual.name, messagesToText(messages)) }]
     });
-    extracted = JSON.parse(raw.content[0].text.replace(/^```json\n?|```$/gm, "").trim());
+    extracted = extractJSON(raw.content[0].text);
   } catch (err) { console.error("SNAP extraction error:", err.message); }
 
   await db.run(
@@ -663,7 +681,7 @@ app.post("/api/argue/submit", async (req, res) => {
         p2.name, { snap_s: r2.snap_s, snap_n: r2.snap_n, snap_a: r2.snap_a, snap_p: r2.snap_p, ownership_level: r2.ownership_level }
       )}]
     });
-    const synthesis = JSON.parse(synthRaw.content[0].text.replace(/^```json\n?|```$/gm, "").trim());
+    const synthesis = extractJSON(synthRaw.content[0].text);
     await db.run("INSERT INTO argument_synthesis (argument_id, couple_view, counselor_view) VALUES ($1,$2,$3)", [argument_id, JSON.stringify(synthesis.couple_view), JSON.stringify(synthesis.counselor_view)]);
     await db.run("UPDATE arguments SET status = 'complete' WHERE id = $1", [argument_id]);
     return res.json({ state: "synthesis", couple_view: synthesis.couple_view });
@@ -829,7 +847,7 @@ app.post("/api/decide/submit", async (req, res) => {
       model: "claude-sonnet-4-6", max_tokens: 1024,
       messages: [{ role: "user", content: buildSmicExtractionPrompt(individual.name, messagesToText(messages)) }]
     });
-    extracted = JSON.parse(raw.content[0].text.replace(/^```json\n?|```$/gm, "").trim());
+    extracted = extractJSON(raw.content[0].text);
   } catch (err) { console.error("SMIC extraction error:", err.message); }
 
   await db.run(
@@ -855,7 +873,7 @@ app.post("/api/decide/submit", async (req, res) => {
         p2.name, { smic_s: r2.smic_s, smic_m: r2.smic_m, smic_i: r2.smic_i, smic_c: r2.smic_c, leaning: r2.leaning }
       )}]
     });
-    const synthesis = JSON.parse(synthRaw.content[0].text.replace(/^```json\n?|```$/gm, "").trim());
+    const synthesis = extractJSON(synthRaw.content[0].text);
     await db.run("INSERT INTO decision_synthesis (decision_id, couple_view) VALUES ($1,$2)", [decision_id, JSON.stringify(synthesis.decision_view)]);
     await db.run("UPDATE decisions SET status = 'complete' WHERE id = $1", [decision_id]);
     return res.json({ state: "synthesis", decision_view: synthesis.decision_view });
@@ -916,7 +934,7 @@ app.post("/api/couple/:id/season/infer", async (req, res) => {
       model: "claude-sonnet-4-6", max_tokens: 512,
       messages: [{ role: "user", content: buildSeasonInferencePrompt(p1?.name || "Partner 1", p2?.name || "Partner 2", profile(p1), profile(p2), couple.season_track || "standard") }]
     });
-    res.json(JSON.parse(raw.content[0].text.replace(/^```json\n?|```$/gm, "").trim()));
+    res.json(extractJSON(raw.content[0].text));
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -1117,7 +1135,7 @@ app.post("/api/final-interview/generate-briefing", async (req, res) => {
       model: "claude-opus-4-8", max_tokens: 2048,
       messages: [{ role: "user", content: buildFinalInterviewBriefingPrompt(s1.name, s2.name, s1Profile, s2Profile) }]
     });
-    const briefing = JSON.parse(raw.content[0].text.replace(/^```json\n?|```$/gm, "").trim());
+    const briefing = extractJSON(raw.content[0].text);
 
     await db.run(
       `INSERT INTO final_interviews (couple_id, briefing, generated_at) VALUES ($1,$2,NOW())
