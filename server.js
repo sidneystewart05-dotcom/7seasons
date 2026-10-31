@@ -1150,7 +1150,7 @@ app.post("/api/final-interview/generate-briefing", async (req, res) => {
 });
 
 app.post("/api/final-interview/message", async (req, res) => {
-  const { couple_id, message } = req.body;
+  const { couple_id, message, speaker } = req.body;
   if (!couple_id || !message?.trim()) return res.status(400).json({ error: "couple_id and message required." });
 
   const members = await db.getAll("SELECT * FROM individuals WHERE couple_id = $1", [couple_id]);
@@ -1159,11 +1159,21 @@ app.post("/api/final-interview/message", async (req, res) => {
   if (!row || !row.briefing || row.briefing === "{}")
     return res.status(400).json({ error: "Briefing has not been generated yet." });
 
+  const isStart = message.trim() === "__START__";
+  // This is a shared, one-device joint session -- every real turn must be
+  // attributed to one of the two spouses so Seven can track who said what
+  // instead of guessing from content.
+  if (!isStart) {
+    const validNames = members.map(m => m.name);
+    if (!speaker || !validNames.includes(speaker))
+      return res.status(400).json({ error: "A speaker (one of the two spouses) is required for each message." });
+  }
+
   const briefing = JSON.parse(row.briefing);
   const history  = JSON.parse(row.messages || "[]");
-  const isStart  = message.trim() === "__START__";
-  const messagesToSend = isStart ? [{ role: "user", content: "Please begin." }] : [...history, { role: "user", content: message.trim() }];
-  if (!isStart) history.push({ role: "user", content: message.trim() });
+  const userContent = isStart ? "Please begin." : `${speaker}: ${message.trim()}`;
+  const messagesToSend = isStart ? [{ role: "user", content: userContent }] : [...history, { role: "user", content: userContent }];
+  if (!isStart) history.push({ role: "user", content: userContent });
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");

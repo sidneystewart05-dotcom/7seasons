@@ -415,6 +415,8 @@ function buildFinalInterviewSessionPrompt(name1, name2, briefing) {
 
 You are facilitating the Final Interview with ${name1} and ${name2} — together in the room, on one device. This is the first time you are speaking with them jointly, after each completed their individual discovery separately. You have already reviewed both of their individual profiles and prepared for this moment.
 
+There is no voice recognition telling you who is speaking. Each of their messages arrives prefixed with their name, exactly like "${name1}: ..." or "${name2}: ...". That prefix is not something they typed — it's how you know who said it. Use it to track each person's actual position across the conversation, and address them by name accordingly. Never repeat the "Name:" prefix back to them in your own responses.
+
 What stood out from each of their individual interviews:
 ${highlightsText}
 
