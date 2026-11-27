@@ -665,9 +665,8 @@
     window.location.href = "/login.html";
   }
 
-  if (!individualId) {
-    window.location.href = "/";
-  }
+  // No early redirect when localStorage is empty: checkAuth() in init() asks
+  // the server who is signed in and sends signed-out users to /login.html.
 
   document.getElementById("topbar-name").textContent = myName || "";
 

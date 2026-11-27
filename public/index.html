@@ -502,12 +502,14 @@
     } catch { showError(err, "Something went wrong. Please try again."); }
   }
 
-  function switchUser() {
+  // Clear the server session too: leaving the auth cookie in place made
+  // login.html bounce to onboarding while onboarding bounced back here.
+  async function switchUser() {
+    try { await fetch("/api/auth/logout", { method: "POST" }); } catch {}
     localStorage.removeItem("7s_individual_id");
     localStorage.removeItem("7s_couple_id");
     localStorage.removeItem("7s_name");
-    document.getElementById("returning-wrap").style.display = "none";
-    document.getElementById("main-ctas").style.display = "flex";
+    window.location.href = "/login.html";
   }
 
   async function loginUser() {
