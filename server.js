@@ -985,9 +985,11 @@ app.post("/api/workitout/talk", requireAuth, async (req, res) => {
   if (!thread) return res.status(409).json({ error: "Already started." });
 
   const [m1, m2] = members;
-  const responses = await db.getAll(
-    "SELECT r.answers, i.name FROM argument_responses r JOIN individuals i ON i.id = r.individual_id WHERE r.argument_id = $1 AND r.completed = 1", [arg.id]);
+  // Questionnaire answers are private until both spouses have answered and the
+  // summary exists; before that, Seven must not see (and so can't repeat) them.
   const synth = await db.getOne("SELECT couple_view FROM argument_synthesis WHERE argument_id = $1", [arg.id]);
+  const responses = synth ? await db.getAll(
+    "SELECT r.answers, i.name FROM argument_responses r JOIN individuals i ON i.id = r.individual_id WHERE r.argument_id = $1 AND r.completed = 1", [arg.id]) : [];
   const system = buildTalkItOutPrompt(m1.name, m2.name, {
     started: !isStart,
     answers: responses.map(r => ({ name: r.name, answers: JSON.parse(r.answers || "{}") })),
