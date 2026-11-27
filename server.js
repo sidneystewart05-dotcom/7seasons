@@ -59,6 +59,24 @@ function extractJSON(text) {
   }
   return JSON.parse(cleaned);
 }
+// Ask Claude for a JSON object, retrying when the reply is cut off by
+// max_tokens or doesn't parse. Long outputs (the marriage model grew once the
+// Final Interview transcript joined its prompt) occasionally come back
+// malformed, and a single failure used to kill report generation outright.
+async function createJSON(params, attempts = 2) {
+  let lastErr;
+  for (let i = 1; i <= attempts; i++) {
+    const response = await anthropic.messages.create(params);
+    const text = response.content.filter(b => b.type === "text").map(b => b.text).join("");
+    if (response.stop_reason === "max_tokens") {
+      lastErr = new Error(`Model output hit max_tokens (${params.max_tokens})`);
+    } else {
+      try { return extractJSON(text); } catch (err) { lastErr = err; }
+    }
+    console.error(`createJSON attempt ${i}/${attempts} failed:`, lastErr.message);
+  }
+  throw lastErr;
+}
 function messagesToText(msgs) { return msgs.map(m => `${m.role === "user" ? "Person" : "Seven"}: ${m.content}`).join("\n\n"); }
 
 // Mirrors the [B]/SEASONS: parsing done client-side in onboarding.html,
@@ -463,18 +481,16 @@ app.post("/api/couple/generate-report", async (req, res) => {
       transcript_text: messagesToText(JSON.parse(finalInterviewRow.messages || "[]"))
     };
 
-    const modelResponse = await anthropic.messages.create({
-      model: "claude-opus-4-8", max_tokens: 4096,
+    const marriageModel = await createJSON({
+      model: "claude-opus-4-8", max_tokens: 10000,
       messages: [{ role: "user", content: buildMarriageModelPrompt(s1.name, s2.name, s1Profile, s2Profile, finalInterviewSummary) }]
     });
-    const marriageModel = extractJSON(modelResponse.content[0].text);
 
     res.write(`data: ${JSON.stringify({ status: "Generating trajectory report..." })}\n\n`);
-    const reportResponse = await anthropic.messages.create({
-      model: "claude-opus-4-8", max_tokens: 8192,
+    const trajectoryReport = await createJSON({
+      model: "claude-opus-4-8", max_tokens: 16000,
       messages: [{ role: "user", content: buildTrajectoryReportPrompt(s1.name, s2.name, marriageModel) }]
     });
-    const trajectoryReport = extractJSON(reportResponse.content[0].text);
 
     await db.run(
       `INSERT INTO marriage_models (couple_id, model, report, generated_at) VALUES ($1,$2,$3,NOW())
