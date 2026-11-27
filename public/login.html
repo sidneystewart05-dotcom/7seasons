@@ -85,7 +85,7 @@
 <script>
   // If already logged in, redirect away
   fetch("/api/auth/me").then(r => {
-    if (r.ok) window.location.href = "/onboarding.html";
+    if (r.ok) window.location.href = "/today.html";
   }).catch(() => {});
 
   document.getElementById("password").addEventListener("keydown", function(e) {
@@ -117,7 +117,7 @@
       localStorage.setItem("7s_individual_id", data.individual_id);
       localStorage.setItem("7s_couple_id",     data.couple_id);
       localStorage.setItem("7s_name",          data.name);
-      window.location.href = "/onboarding.html";
+      window.location.href = "/today.html";
     } catch {
       showError("Something went wrong. Please try again.");
       btn.disabled = false;

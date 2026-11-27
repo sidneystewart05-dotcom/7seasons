@@ -184,7 +184,7 @@
     } catch { window.location.href = "/login.html"; return false; }
   }
 
-  function closeToDashboard() { window.location.href = "/dashboard.html"; }
+  function closeToDashboard() { window.location.href = "/today.html"; }
 
   // ── Status / gate screens ───────────────────────────────────────────────────
   function renderStatus(html) {
@@ -195,7 +195,7 @@
     renderStatus(`
       <h2>Not quite yet</h2>
       <p>The Final Interview happens once both of you have completed your individual discovery. Head back to your dashboard to see what's left.</p>
-      <button class="btn" onclick="closeToDashboard()">Back to Dashboard</button>
+      <button class="btn" onclick="closeToDashboard()">Back to Today</button>
     `);
   }
 

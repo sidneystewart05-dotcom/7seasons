@@ -139,7 +139,7 @@
 
 <div class="topbar">
   <div class="logo">7 <span>Seasons</span></div>
-  <a href="/dashboard.html">← Dashboard</a>
+  <a href="/today.html">← Today</a>
 </div>
 
 <div class="container">
@@ -185,7 +185,7 @@
             ? "Your partner hasn't joined yet. Share your invite code: <strong>" + me.invite_code + "</strong>"
             : me.partner.name + " hasn't completed their discovery yet. The report will be ready when you're both done."
           }</p>
-          <button class="btn" onclick="window.location.href='/dashboard.html'">Back to Dashboard</button>
+          <button class="btn" onclick="window.location.href='/today.html'">Back to Today</button>
         </div>`;
       return;
     }
@@ -355,5 +355,6 @@
 </script>
 
 <script src="/keyboard.js"></script>
+<script src="/tabbar.js" data-tab="more"></script>
 </body>
 </html>

@@ -215,7 +215,7 @@
 <div class="topbar">
   <div class="logo">7 <span>Seasons</span></div>
   <div class="topbar-nav">
-    <a href="/dashboard.html">Dashboard</a>
+    <a href="/today.html">Today</a>
     <button onclick="logout()">Sign out</button>
   </div>
 </div>
@@ -325,7 +325,7 @@
   <div class="main-content">
     <div class="actions-row">
       <button class="btn-action primary" onclick="openUpdateSheet()">Update our season</button>
-      <a href="/dashboard.html" class="btn-action">Dashboard</a>
+      <a href="/today.html" class="btn-action">Today</a>
     </div>
 
     <div class="section-title">About this season</div>
@@ -432,7 +432,7 @@
   // ── Boot ───────────────────────────────────────────────────────────────────
   async function init() {
     if (!await checkAuth()) return;
-    if (!coupleId) { window.location.href = "/dashboard.html"; return; }
+    if (!coupleId) { window.location.href = "/today.html"; return; }
 
     const data = await fetch("/api/couple/" + coupleId + "/season").then(r => r.json()).catch(() => null);
 
@@ -772,5 +772,6 @@
 </script>
 
 <script src="/keyboard.js"></script>
+<script src="/tabbar.js" data-tab="us"></script>
 </body>
 </html>

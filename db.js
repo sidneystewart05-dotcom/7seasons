@@ -8,7 +8,8 @@ if (!process.env.DATABASE_URL) {
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+  // Local test databases (e.g. PGlite on localhost) don't speak SSL.
+  ssl: /@(localhost|127\.0\.0\.1)[:/]/.test(process.env.DATABASE_URL) ? false : { rejectUnauthorized: false }
 });
 
 async function initSchema() {
@@ -203,6 +204,26 @@ async function initSchema() {
     ALTER TABLE individuals ADD COLUMN IF NOT EXISTS bio TEXT DEFAULT '{}';
     ALTER TABLE individuals ADD COLUMN IF NOT EXISTS bio_complete INTEGER DEFAULT 0;
     ALTER TABLE individuals ADD COLUMN IF NOT EXISTS total_time_seconds INTEGER DEFAULT 0;
+  `);
+
+  // Daily check-in and "Work it out" (argument questionnaire + Talk it out).
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS daily_checkins (
+      id TEXT PRIMARY KEY,
+      couple_id TEXT NOT NULL,
+      individual_id TEXT NOT NULL,
+      day DATE NOT NULL,
+      rating INTEGER NOT NULL,
+      note TEXT DEFAULT '',
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(individual_id, day)
+    );
+    CREATE INDEX IF NOT EXISTS idx_daily_checkins_couple_day ON daily_checkins(couple_id, day);
+
+    ALTER TABLE argument_responses ADD COLUMN IF NOT EXISTS answers TEXT DEFAULT '{}';
+    ALTER TABLE arguments ADD COLUMN IF NOT EXISTS talk_messages TEXT DEFAULT '[]';
+    ALTER TABLE arguments ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMPTZ;
   `);
 }
 

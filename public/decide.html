@@ -187,8 +187,8 @@
 <div id="state-no-partner" class="state-panel panel-centered">
   <div class="panel-icon">🧭</div>
   <h2>Your partner hasn't joined yet.</h2>
-  <p>This feature is available once your partner sets up their account. Share your invite code from the dashboard.</p>
-  <a href="/dashboard.html" class="btn-primary">Back to Dashboard</a>
+  <p>This feature is available once your partner sets up their account. Share your invite code from the Us tab.</p>
+  <a href="/today.html" class="btn-primary">Back to Today</a>
 </div>
 
 <!-- ── List / History ── -->
@@ -277,14 +277,14 @@
   <h2>You're done.</h2>
   <p>Waiting for <strong id="partner-name-waiting"></strong> to complete their side. This page will update automatically when they're done.</p>
   <p class="polling-label" id="polling-label">Checking...</p>
-  <a href="/dashboard.html" class="btn-ghost">Back to Dashboard</a>
+  <a href="/today.html" class="btn-ghost">Back to Today</a>
 </div>
 
 <!-- ── Synthesis ── -->
 <div id="state-synthesis" class="state-panel">
   <div class="synthesis-topbar">
     <div class="topbar-logo">7 <span>Seasons</span></div>
-    <a href="/dashboard.html" class="btn-ghost">Dashboard</a>
+    <a href="/today.html" class="btn-ghost">Today</a>
   </div>
   <div class="synthesis-container">
     <div class="synthesis-eyebrow">Decision Synthesis</div>
@@ -300,7 +300,7 @@
   <h2>Something went wrong.</h2>
   <p id="error-msg">Please try again.</p>
   <button class="btn-primary" onclick="init()">Try Again</button>
-  <a href="/dashboard.html" class="btn-ghost">Back to Dashboard</a>
+  <a href="/today.html" class="btn-ghost">Back to Today</a>
 </div>
 
 <script>
@@ -333,6 +333,8 @@
       const el = document.getElementById(id);
       if (el) el.classList.toggle("active", id === name);
     });
+    // The SMIC chat is full-screen; the tab bar would cover its input.
+    if (name === "state-chat") window.SevenTabbar?.hide(); else window.SevenTabbar?.show();
   }
 
   function escapeHTML(t) {
@@ -762,7 +764,7 @@
     const actions = document.getElementById("synthesis-actions");
     actions.innerHTML = viewingHistory
       ? `<a href="/decide.html" class="btn-ghost" onclick="event.preventDefault(); showList();">← Back to History</a>`
-      : `<button class="btn-primary" onclick="showList()">Start a New Decision</button><a href="/dashboard.html" class="btn-ghost">Back to Dashboard</a>`;
+      : `<button class="btn-primary" onclick="showList()">Start a New Decision</button><a href="/today.html" class="btn-ghost">Back to Today</a>`;
 
     setState("state-synthesis");
   }
@@ -770,7 +772,7 @@
   // ── Save & close ───────────────────────────────────────────────────────────
   function saveAndClose() {
     if (micShouldBeActive) { micShouldBeActive = false; if (recognition) try { recognition.abort(); } catch {} }
-    window.location.href = "/dashboard.html";
+    window.location.href = "/today.html";
   }
 
   // ── Voice Input ────────────────────────────────────────────────────────────
@@ -849,5 +851,6 @@
 </script>
 
 <script src="/keyboard.js"></script>
+<script src="/tabbar.js" data-tab="work"></script>
 </body>
 </html>

@@ -25,7 +25,10 @@ const {
   PREMARITAL_SESSIONS,
   buildPremaritalSessionPrompt,
   buildFinalInterviewBriefingPrompt,
-  buildFinalInterviewSessionPrompt
+  buildFinalInterviewSessionPrompt,
+  ARGUMENT_QUESTIONS,
+  buildArgumentQuestionnaireSynthesisPrompt,
+  buildTalkItOutPrompt
 } = require("./prompts");
 
 const app      = express();
@@ -335,7 +338,7 @@ app.get("/api/me/:individual_id", async (req, res) => {
     domain_summaries: JSON.parse(individual.domain_summaries || "{}"),
     domains_total: DOMAINS.length,
     total_time_seconds: individual.total_time_seconds || 0,
-    partner: partner ? { id: partner.id, name: partner.name, onboarding_complete: !!partner.onboarding_complete } : null,
+    partner: partner ? { id: partner.id, name: partner.name, onboarding_complete: !!partner.onboarding_complete, current_domain: partner.current_domain || 0 } : null,
     both_complete: partner ? (!!individual.onboarding_complete && !!partner.onboarding_complete) : false,
     couple_track: couple.couple_track || "standard",
     final_interview_completed: !!(finalInterview && finalInterview.completed)
@@ -741,6 +744,279 @@ app.get("/api/argue/:argument_id/counselor", async (req, res) => {
   }));
 
   res.json({ argument_id: req.params.argument_id, counselor_view: JSON.parse(synthesis.counselor_view), responses: enriched, generated_at: synthesis.generated_at });
+});
+
+// ─── Daily Check-in ───────────────────────────────────────────────────────────
+// One check-in per person per day: how connected they feel (1-5) plus an
+// optional note. A spouse's check-in for a day stays hidden until you've done
+// your own for that day, so neither anchors the other.
+
+const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+const ymd = d => d.toISOString().slice(0, 10);
+function addDays(day, n) { const d = new Date(day + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return ymd(d); }
+
+app.get("/api/checkins", requireAuth, async (req, res) => {
+  const day = DAY_RE.test(req.query.day || "") ? req.query.day : ymd(new Date());
+  const { individual_id, couple_id } = req.user;
+  const members = await db.getAll("SELECT id, name FROM individuals WHERE couple_id = $1", [couple_id]);
+  const partner = members.find(m => m.id !== individual_id) || null;
+
+  const from = addDays(day, -60);
+  const rows = await db.getAll(
+    "SELECT individual_id, to_char(day, 'YYYY-MM-DD') AS day, rating, note FROM daily_checkins WHERE couple_id = $1 AND day BETWEEN $2 AND $3",
+    [couple_id, from, day]
+  );
+  const mine = new Map(rows.filter(r => r.individual_id === individual_id).map(r => [r.day, r]));
+  const theirs = new Map(rows.filter(r => partner && r.individual_id === partner.id).map(r => [r.day, r]));
+
+  const me = mine.get(day) || null;
+  const partnerToday = partner ? theirs.get(day) : null;
+
+  // Streak: consecutive days you checked in, ending today (or yesterday, so it
+  // doesn't read as broken before you've checked in today).
+  let streak = 0;
+  for (let d = me ? day : addDays(day, -1); mine.has(d); d = addDays(d, -1)) streak++;
+
+  const week = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = addDays(day, -i);
+    const p = theirs.get(d);
+    week.push({ day: d, me: mine.get(d)?.rating || null, partner: p && (d !== day || me) ? p.rating : null });
+  }
+
+  res.json({
+    day, streak, week,
+    me: me ? { rating: me.rating, note: me.note } : null,
+    partner: partner ? {
+      name: partner.name,
+      checked_in: !!partnerToday,
+      ...(partnerToday && me ? { rating: partnerToday.rating, note: partnerToday.note } : {})
+    } : null
+  });
+});
+
+app.post("/api/checkins", requireAuth, async (req, res) => {
+  const { day, rating, note } = req.body;
+  const r = parseInt(rating, 10);
+  if (!DAY_RE.test(day || "")) return res.status(400).json({ error: "day must be YYYY-MM-DD" });
+  if (!(r >= 1 && r <= 5)) return res.status(400).json({ error: "rating must be 1-5" });
+  await db.run(
+    `INSERT INTO daily_checkins (id, couple_id, individual_id, day, rating, note) VALUES ($1,$2,$3,$4,$5,$6)
+     ON CONFLICT (individual_id, day) DO UPDATE SET rating = EXCLUDED.rating, note = EXCLUDED.note, updated_at = NOW()`,
+    [generateId(), req.user.couple_id, req.user.individual_id, day, r, String(note || "").trim().slice(0, 500)]
+  );
+  res.json({ success: true });
+});
+
+// ─── Work it out (argument questionnaire + Talk it out with Seven) ────────────
+// Reuses arguments / argument_responses / argument_synthesis. The couple's
+// current argument is the newest one not yet resolved. Each spouse answers
+// ARGUMENT_QUESTIONS privately; when both have, Seven writes a joint summary.
+// "Talk it out" is one shared thread on the argument (arguments.talk_messages)
+// that both spouses post into, each message attributed to a speaker.
+
+const currentArgument = coupleId => db.getOne(
+  "SELECT * FROM arguments WHERE couple_id = $1 AND resolved_at IS NULL ORDER BY created_at DESC LIMIT 1", [coupleId]);
+
+async function ensureArgument(coupleId) {
+  const existing = await currentArgument(coupleId);
+  if (existing) return existing;
+  const id = generateId();
+  await db.run("INSERT INTO arguments (id, couple_id) VALUES ($1,$2)", [id, coupleId]);
+  return db.getOne("SELECT * FROM arguments WHERE id = $1", [id]);
+}
+
+async function summarizeArgument(arg) {
+  const responses = await db.getAll("SELECT * FROM argument_responses WHERE argument_id = $1 AND completed = 1", [arg.id]);
+  if (responses.length < 2) return null;
+  const done = await db.getOne("SELECT couple_view FROM argument_synthesis WHERE argument_id = $1", [arg.id]);
+  if (done) return JSON.parse(done.couple_view);
+
+  const [r1, r2] = responses;
+  const p1 = await db.getOne("SELECT name FROM individuals WHERE id = $1", [r1.individual_id]);
+  const p2 = await db.getOne("SELECT name FROM individuals WHERE id = $1", [r2.individual_id]);
+  await db.run("UPDATE arguments SET status = 'synthesis_pending' WHERE id = $1", [arg.id]);
+  try {
+    const synthesis = await createJSON({
+      model: "claude-sonnet-4-6", max_tokens: 3000,
+      messages: [{ role: "user", content: buildArgumentQuestionnaireSynthesisPrompt(
+        p1.name, JSON.parse(r1.answers || "{}"), p2.name, JSON.parse(r2.answers || "{}")) }]
+    });
+    await db.run(
+      `INSERT INTO argument_synthesis (argument_id, couple_view, counselor_view) VALUES ($1,$2,$3)
+       ON CONFLICT (argument_id) DO UPDATE SET couple_view = EXCLUDED.couple_view, counselor_view = EXCLUDED.counselor_view, generated_at = NOW()`,
+      [arg.id, JSON.stringify(synthesis.couple_view), JSON.stringify(synthesis.counselor_view || {})]
+    );
+    await db.run("UPDATE arguments SET status = 'complete' WHERE id = $1", [arg.id]);
+    return synthesis.couple_view;
+  } catch (err) {
+    console.error("Work it out summary error:", err.message);
+    await db.run("UPDATE arguments SET status = 'open' WHERE id = $1", [arg.id]);
+    throw err;
+  }
+}
+
+app.get("/api/workitout", requireAuth, async (req, res) => {
+  const { individual_id, couple_id } = req.user;
+  const members = await db.getAll("SELECT id, name FROM individuals WHERE couple_id = $1", [couple_id]);
+  const partner = members.find(m => m.id !== individual_id) || null;
+  const partnerName = partner?.name || "your spouse";
+  const questions = ARGUMENT_QUESTIONS.map(q => ({
+    ...q, label: q.label.replace("{partner}", partnerName),
+    ...(q.options ? { options: q.options.map(o => o.replace("{partner}", partnerName)) } : {})
+  }));
+
+  const arg = await currentArgument(couple_id);
+  let argument = null;
+  if (arg) {
+    const responses = await db.getAll("SELECT individual_id, answers, completed FROM argument_responses WHERE argument_id = $1", [arg.id]);
+    const mine = responses.find(r => r.individual_id === individual_id);
+    const theirs = responses.find(r => partner && r.individual_id === partner.id);
+    const synth = await db.getOne("SELECT couple_view FROM argument_synthesis WHERE argument_id = $1", [arg.id]);
+    argument = {
+      id: arg.id, status: arg.status, created_at: arg.created_at,
+      my_answers: mine ? JSON.parse(mine.answers || "{}") : {},
+      my_completed: !!mine?.completed,
+      partner_completed: !!theirs?.completed,
+      couple_view: synth ? JSON.parse(synth.couple_view) : null,
+      talk_count: JSON.parse(arg.talk_messages || "[]").length
+    };
+  }
+
+  const history = await db.getAll(
+    `SELECT a.id, a.created_at, a.resolved_at, s.couple_view FROM arguments a
+     LEFT JOIN argument_synthesis s ON s.argument_id = a.id
+     WHERE a.couple_id = $1 AND a.resolved_at IS NOT NULL ORDER BY a.created_at DESC LIMIT 10`, [couple_id]);
+
+  res.json({
+    me: { name: req.user.name }, partner: partner ? { name: partner.name } : null, questions, argument,
+    history: history.map(h => { const v = JSON.parse(h.couple_view || "null"); return { id: h.id, created_at: h.created_at, resolved_at: h.resolved_at, next_step: v?.next_step || null }; })
+  });
+});
+
+app.post("/api/workitout/answers", requireAuth, async (req, res) => {
+  const { individual_id, couple_id } = req.user;
+  const members = await db.getAll("SELECT id FROM individuals WHERE couple_id = $1", [couple_id]);
+  if (members.length < 2) return res.status(400).json({ error: "Your spouse hasn't joined yet." });
+
+  const input = req.body.answers || {};
+  const answers = {};
+  for (const q of ARGUMENT_QUESTIONS) {
+    let v = input[q.key];
+    if (q.type === "scale") v = parseInt(v, 10);
+    else v = String(v ?? "").trim().slice(0, 2000);
+    if (q.type === "scale" ? !(v >= 1 && v <= 5) : !v) {
+      if (q.optional) continue;
+      return res.status(400).json({ error: `Please answer: ${q.label.replace("{partner}", "your spouse")}` });
+    }
+    answers[q.key] = v;
+  }
+
+  const arg = await ensureArgument(couple_id);
+  const existing = await db.getOne("SELECT completed FROM argument_responses WHERE argument_id = $1 AND individual_id = $2", [arg.id, individual_id]);
+  if (existing?.completed) return res.status(400).json({ error: "You've already answered for this argument." });
+  await db.run(
+    `INSERT INTO argument_responses (id, argument_id, individual_id, answers, completed, submitted_at) VALUES ($1,$2,$3,$4,1,NOW())
+     ON CONFLICT (argument_id, individual_id) DO UPDATE SET answers = EXCLUDED.answers, completed = 1, submitted_at = NOW()`,
+    [generateId(), arg.id, individual_id, JSON.stringify(answers)]
+  );
+
+  try {
+    const couple_view = await summarizeArgument(arg);
+    res.json({ state: couple_view ? "summary" : "waiting", couple_view });
+  } catch (err) {
+    res.status(500).json({ error: "Your answers were saved, but the summary failed. Try again in a moment." });
+  }
+});
+
+app.post("/api/workitout/summarize", requireAuth, async (req, res) => {
+  const arg = await currentArgument(req.user.couple_id);
+  if (!arg) return res.status(404).json({ error: "No open argument." });
+  try { res.json({ couple_view: await summarizeArgument(arg) }); }
+  catch (err) { res.status(500).json({ error: "The summary failed. Try again in a moment." }); }
+});
+
+app.post("/api/workitout/resolve", requireAuth, async (req, res) => {
+  await db.run("UPDATE arguments SET resolved_at = NOW() WHERE couple_id = $1 AND resolved_at IS NULL", [req.user.couple_id]);
+  res.json({ success: true });
+});
+
+app.get("/api/workitout/talk", requireAuth, async (req, res) => {
+  const arg = await currentArgument(req.user.couple_id);
+  const members = await db.getAll("SELECT name FROM individuals WHERE couple_id = $1", [req.user.couple_id]);
+  res.json({ argument_id: arg?.id || null, names: members.map(m => m.name), messages: arg ? JSON.parse(arg.talk_messages || "[]") : [] });
+});
+
+// Anthropic needs alternating roles starting with "user": merge back-to-back
+// spouse messages into one user turn.
+function talkToApiMessages(thread) {
+  const out = [];
+  for (const m of thread) {
+    const content = m.role === "user" ? `${m.speaker}: ${m.content}` : m.content;
+    const last = out[out.length - 1];
+    if (last && last.role === m.role) last.content += "\n\n" + content;
+    else out.push({ role: m.role, content });
+  }
+  if (!out.length || out[0].role !== "user") out.unshift({ role: "user", content: "Please begin." });
+  return out;
+}
+
+app.post("/api/workitout/talk", requireAuth, async (req, res) => {
+  const { couple_id } = req.user;
+  const message = String(req.body.message || "").trim();
+  if (!message) return res.status(400).json({ error: "message required" });
+  const members = await db.getAll("SELECT id, name FROM individuals WHERE couple_id = $1", [couple_id]);
+  if (members.length < 2) return res.status(400).json({ error: "Your spouse hasn't joined yet." });
+  const isStart = message === "__START__";
+  const speaker = req.body.speaker || req.user.name;
+  if (!isStart && !members.some(m => m.name === speaker)) return res.status(400).json({ error: "Unknown speaker." });
+
+  const arg = await ensureArgument(couple_id);
+  // Append the spouse's message under a row lock so two phones posting at once
+  // don't overwrite each other.
+  const thread = await db.transaction(async client => {
+    const row = (await client.query("SELECT talk_messages FROM arguments WHERE id = $1 FOR UPDATE", [arg.id])).rows[0];
+    const t = JSON.parse(row.talk_messages || "[]");
+    if (isStart && t.length) return null;
+    if (!isStart) t.push({ role: "user", speaker, content: message.slice(0, 4000), at: new Date().toISOString() });
+    await client.query("UPDATE arguments SET talk_messages = $1 WHERE id = $2", [JSON.stringify(t), arg.id]);
+    return t;
+  });
+  if (!thread) return res.status(409).json({ error: "Already started." });
+
+  const [m1, m2] = members;
+  const responses = await db.getAll(
+    "SELECT r.answers, i.name FROM argument_responses r JOIN individuals i ON i.id = r.individual_id WHERE r.argument_id = $1 AND r.completed = 1", [arg.id]);
+  const synth = await db.getOne("SELECT couple_view FROM argument_synthesis WHERE argument_id = $1", [arg.id]);
+  const system = buildTalkItOutPrompt(m1.name, m2.name, {
+    started: !isStart,
+    answers: responses.map(r => ({ name: r.name, answers: JSON.parse(r.answers || "{}") })),
+    summary: synth ? JSON.parse(synth.couple_view).synthesis : null
+  });
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  let full = "";
+  try {
+    const stream = anthropic.messages.stream({ model: "claude-sonnet-4-6", max_tokens: 1200, system, messages: talkToApiMessages(thread) });
+    for await (const event of stream) {
+      if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+        full += event.delta.text;
+        res.write(`data: ${JSON.stringify({ text: event.delta.text })}\n\n`);
+      }
+    }
+    await db.transaction(async client => {
+      const row = (await client.query("SELECT talk_messages FROM arguments WHERE id = $1 FOR UPDATE", [arg.id])).rows[0];
+      const t = JSON.parse(row.talk_messages || "[]");
+      t.push({ role: "assistant", content: full, at: new Date().toISOString() });
+      await client.query("UPDATE arguments SET talk_messages = $1 WHERE id = $2", [JSON.stringify(t), arg.id]);
+    });
+    res.write("data: [DONE]\n\n");
+  } catch (err) {
+    console.error("Talk it out error:", err.message);
+    res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
+  } finally { res.end(); }
 });
 
 // ─── Big Decision Advisor: SMIC ────────────────────────────────────────────────
