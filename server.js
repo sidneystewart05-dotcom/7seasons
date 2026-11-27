@@ -57,7 +57,30 @@ function extractJSON(text) {
     const end = cleaned.lastIndexOf(closer);
     if (end > start) cleaned = cleaned.slice(start, end + 1);
   }
-  return JSON.parse(cleaned);
+  try { return JSON.parse(cleaned); }
+  catch { return JSON.parse(escapeControlCharsInStrings(cleaned)); }
+}
+// Models sometimes put raw newlines/tabs inside long JSON string values,
+// which JSON.parse rejects ("Bad control character in string literal").
+function escapeControlCharsInStrings(s) {
+  let out = "", inString = false, escaped = false;
+  for (const ch of s) {
+    if (inString) {
+      if (escaped) { escaped = false; out += ch; continue; }
+      if (ch === "\\") { escaped = true; out += ch; continue; }
+      if (ch === '"') { inString = false; out += ch; continue; }
+      const code = ch.charCodeAt(0);
+      if (code < 0x20) {
+        out += ch === "\n" ? "\\n" : ch === "\r" ? "\\r" : ch === "\t" ? "\\t" : "\\u" + code.toString(16).padStart(4, "0");
+        continue;
+      }
+      out += ch;
+    } else {
+      if (ch === '"') inString = true;
+      out += ch;
+    }
+  }
+  return out;
 }
 // Ask Claude for a JSON object, retrying when the reply is cut off by
 // max_tokens or doesn't parse. Long outputs (the marriage model grew once the
